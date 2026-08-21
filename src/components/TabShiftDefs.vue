@@ -1,9 +1,15 @@
 <template>
   <div class="tab-panel">
     <div class="card">
-      <div class="card-title">
-        <Clock :size="20" />
-        <span>放射診斷科 班別代碼與出勤時間規格定義</span>
+      <div class="card-title" style="justify-content: space-between;">
+        <div style="display: flex; align-items: center; gap: 0.5rem;">
+          <Clock :size="20" />
+          <span>班別代碼與出勤時間規格設定 (主管可自由修改與新增)</span>
+        </div>
+        <button class="btn btn-outline" style="font-size: 0.8rem;" @click="addShift">
+          <Plus :size="14" />
+          <span>新增自訂班別</span>
+        </button>
       </div>
 
       <div class="table-container">
@@ -12,23 +18,45 @@
             <tr>
               <th>班別代號</th>
               <th>班別名稱</th>
-              <th>出勤時間</th>
+              <th>出勤時間段</th>
               <th>對應檢查室 / 區域</th>
-              <th>需具備資深帶導</th>
-              <th>所需專業資格</th>
-              <th>說明與工時備註</th>
+              <th>需要資深帶導</th>
+              <th>專業資格要求</th>
+              <th>標籤顏色</th>
+              <th>操作</th>
             </tr>
           </thead>
           <tbody>
             <tr v-for="(info, code) in shifts" :key="code">
-              <td><span class="badge" :style="{ backgroundColor: info.color, color: 'white' }">{{ code }}</span></td>
-              <td><strong>{{ info.name }}</strong></td>
-              <td>{{ info.time }}</td>
-              <td>{{ info.room }}</td>
-              <td>{{ info.needsSenior ? '✅ 需資深/組長' : '一般可' }}</td>
-              <td><span class="badge badge-primary">{{ info.modKey ? info.modKey.toUpperCase() : '無特殊' }}</span></td>
-              <td style="text-align: left; font-size: 0.85rem; color: #64748b;">
-                {{ getShiftNote(code) }}
+              <td>
+                <input v-model="info.codeKey" @change="updateCode(code, info.codeKey)" style="width: 80px; text-align: center; border: 1px solid #cbd5e1; border-radius: 4px; font-weight: 700;" />
+              </td>
+              <td>
+                <input v-model="info.name" style="width: 100px; text-align: center; border: 1px solid #cbd5e1; border-radius: 4px; font-weight: 600;" />
+              </td>
+              <td>
+                <input v-model="info.time" style="width: 110px; text-align: center; border: 1px solid #cbd5e1; border-radius: 4px;" />
+              </td>
+              <td>
+                <input v-model="info.room" style="width: 120px; text-align: center; border: 1px solid #cbd5e1; border-radius: 4px;" />
+              </td>
+              <td>
+                <input type="checkbox" v-model="info.needsSenior" />
+              </td>
+              <td>
+                <select v-model="info.modKey" style="padding: 0.2rem; border: 1px solid #cbd5e1; border-radius: 4px;">
+                  <option :value="null">無特殊限制</option>
+                  <option value="ct">CT 資格</option>
+                  <option value="mri">MRI 資格</option>
+                  <option value="angio">Angio 資格</option>
+                  <option value="mammo">乳房攝影資格</option>
+                </select>
+              </td>
+              <td>
+                <input type="color" v-model="info.color" style="width: 40px; height: 30px; border: none; cursor: pointer;" />
+              </td>
+              <td>
+                <button class="btn btn-danger" style="padding: 0.2rem 0.4rem; font-size: 0.75rem;" @click="removeShift(code)">刪除</button>
               </td>
             </tr>
           </tbody>
@@ -39,23 +67,65 @@
 </template>
 
 <script setup>
-import { Clock } from 'lucide-vue-next'
-import { SHIFT_DEFS } from '../core/types.js'
+import { ref, watch } from 'vue'
+import { Clock, Plus } from 'lucide-vue-next'
 
-const shifts = SHIFT_DEFS
+const props = defineProps({
+  shiftDefs: { type: Object, default: () => ({}) }
+})
 
-function getShiftNote(code) {
-  const notes = {
-    'D_CT': 'CT 電腦斷層檢查室，包含對比劑注射與高階攝影，需 1 位資深帶導。',
-    'D_MRI': 'MRI 核磁共振檢查室，需具備 MRI 證照，需 1 位資深帶導。',
-    'D_ANGIO': '血管攝影與介入性放射治療 (IR)，配合導管室，具備 Angio 資格。',
-    'D_DR': '一般門診與住院 X 光攝影房，每房配置 1–2 人。',
-    'E_NIGHT': '急診小夜班 (16:00–24:00)，負責晚間急診及緊急 CT 檢查。',
-    'G_NIGHT': '急診大夜班 (00:00–08:00)，24h 急診大夜，享 11h Rest Gap 自動順延。',
-    'CALL': '血管攝影 24h 緊急 On-Call 待命班。',
-    'SAT_D': '週六門診半日班 (08:00–12:30)。',
-    'OFF': '休息日或個人請假。'
+const emit = defineEmits(['update:shiftDefs'])
+
+const shifts = ref({})
+
+// 將存入的物體加上 codeKey 屬性以便編輯
+watch(() => props.shiftDefs, (newVal) => {
+  const result = {}
+  Object.entries(newVal).forEach(([k, v]) => {
+    result[k] = { ...v, codeKey: k }
+  })
+  shifts.value = result
+}, { immediate: true, deep: true })
+
+function updateCode(oldCode, newCode) {
+  if (!newCode || oldCode === newCode) return
+  if (shifts.value[newCode]) {
+    alert('班別代號已被使用，請輸入獨立代號。')
+    return
   }
-  return notes[code] || ''
+  const item = shifts.value[oldCode]
+  delete shifts.value[oldCode]
+  shifts.value[newCode] = item
+  emitChange()
+}
+
+function emitChange() {
+  const cleanObj = {}
+  Object.entries(shifts.value).forEach(([k, v]) => {
+    const { codeKey, ...rest } = v
+    cleanObj[k] = rest
+  })
+  emit('update:shiftDefs', cleanObj)
+}
+
+function addShift() {
+  const newCode = `CUSTOM_${Date.now().toString().slice(-4)}`
+  shifts.value[newCode] = {
+    codeKey: newCode,
+    name: '自訂新班別',
+    time: '08:00–17:00',
+    room: '檢查室',
+    color: '#0d5c53',
+    needsSenior: false,
+    modKey: null
+  }
+  emitChange()
+}
+
+function removeShift(code) {
+  if (confirm(`確定刪除班別 ${code}？`)) {
+    delete shifts.value[code]
+    emitChange()
+  }
 }
 </script>

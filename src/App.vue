@@ -29,7 +29,7 @@
           @click="activeTab = 'shifts'"
         >
           <Clock :size="16" />
-          <span>2. 班別與時間段定義</span>
+          <span>2. 班別與時間段設定</span>
         </button>
 
         <button 
@@ -78,7 +78,10 @@
         v-model:staff="staff"
       />
 
-      <TabShiftDefs v-if="activeTab === 'shifts'" />
+      <TabShiftDefs 
+        v-if="activeTab === 'shifts'" 
+        v-model:shiftDefs="shiftDefs"
+      />
 
       <TabLeaveEvents 
         v-if="activeTab === 'leave'"
@@ -86,7 +89,10 @@
         v-model:leaves="leaves"
       />
 
-      <TabConstraints v-if="activeTab === 'constraints'" />
+      <TabConstraints 
+        v-if="activeTab === 'constraints'"
+        v-model:constraints="constraints"
+      />
 
       <TabManualLocks 
         v-if="activeTab === 'manual'"
@@ -121,16 +127,23 @@ import TabConstraints from './components/TabConstraints.vue'
 import TabManualLocks from './components/TabManualLocks.vue'
 import TabScheduleResult from './components/TabScheduleResult.vue'
 
-import { DEFAULT_STAFF } from './core/types.js'
+import { DEFAULT_STAFF, SHIFT_DEFS } from './core/types.js'
 import { solveRoster } from './core/solver.js'
 import { exportRosterToExcel } from './core/exporter.js'
 import { loadState, saveState, exportBackupJSON, importBackupJSON } from './core/storage.js'
 
-// 核心響應式狀態
+// 核心響應式狀態 (全可由主管在 UI 直接修改)
 const year = ref(loadState('year', 2026))
 const month = ref(loadState('month', 9))
 const holidays = ref(loadState('holidays', ['2026-09-28']))
 const staff = ref(loadState('staff', DEFAULT_STAFF))
+const shiftDefs = ref(loadState('shiftDefs', SHIFT_DEFS))
+const constraints = ref(loadState('constraints', {
+  enableRestGap: true,
+  restGapHours: 11,
+  enableSeniorPairing: true,
+  maxNightShiftsPerMonth: 6
+}))
 const leaves = ref(loadState('leaves', []))
 const locks = ref(loadState('locks', []))
 const roster = ref(loadState('roster', {}))
@@ -142,11 +155,13 @@ const showEditHighlight = ref(true)
 const activeTab = ref('setup')
 
 // 監聽並持久化儲存
-watch([year, month, holidays, staff, leaves, locks, roster, warnings, manualEdits], () => {
+watch([year, month, holidays, staff, shiftDefs, constraints, leaves, locks, roster, warnings, manualEdits], () => {
   saveState('year', year.value)
   saveState('month', month.value)
   saveState('holidays', holidays.value)
   saveState('staff', staff.value)
+  saveState('shiftDefs', shiftDefs.value)
+  saveState('constraints', constraints.value)
   saveState('leaves', leaves.value)
   saveState('locks', locks.value)
   saveState('roster', roster.value)
@@ -164,6 +179,8 @@ function handleGenerate() {
     year: year.value,
     month: month.value,
     staffList: staff.value,
+    shiftDefs: shiftDefs.value,
+    constraints: constraints.value,
     leaves: leaves.value,
     locks: locks.value,
     holidays: holidays.value
@@ -208,6 +225,8 @@ function handleBackupJSON() {
     month: month.value,
     holidays: holidays.value,
     staff: staff.value,
+    shiftDefs: shiftDefs.value,
+    constraints: constraints.value,
     leaves: leaves.value,
     locks: locks.value,
     roster: roster.value,
@@ -224,16 +243,17 @@ function handleLoadBackup(event) {
     if (data.month) month.value = data.month
     if (data.holidays) holidays.value = data.holidays
     if (data.staff) staff.value = data.staff
+    if (data.shiftDefs) shiftDefs.value = data.shiftDefs
+    if (data.constraints) constraints.value = data.constraints
     if (data.leaves) leaves.value = data.leaves
     if (data.locks) locks.value = data.locks
     if (data.roster) roster.value = data.roster
     if (data.manualEdits) manualEdits.value = data.manualEdits
-    alert('備份資料載入完成！')
+    alert('備份資料載入完成！主管設定已更新。')
   })
 }
 
 onMounted(() => {
-  // 若未產生班表，自動初次演算
   if (Object.keys(roster.value).length === 0) {
     handleGenerate()
   }
