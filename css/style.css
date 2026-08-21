@@ -1,0 +1,300 @@
+/* 放射診斷科排班系統 專用樣式表 (style.css) */
+:root {
+  --primary-color: #1e3a8a;
+  --primary-hover: #1e40af;
+  --bg-dark: #0f172a;
+  --bg-card: #1e293b;
+  --text-main: #f8fafc;
+  --text-muted: #94a3b8;
+  --border-color: #334155;
+  --accent-yellow: #f59e0b;
+  --accent-yellow-bg: #451a03;
+  --accent-yellow-light: #fef3c7;
+  --accent-yellow-border: #f59e0b;
+  --danger-color: #ef4444;
+  --danger-bg: #7f1d1d;
+  --success-color: #10b981;
+  
+  /* 動態字級縮放 CSS 變數 */
+  --font-scale: 1;
+  --tbl-font-size: calc(14px * var(--font-scale));
+  --tbl-header-size: calc(15px * var(--font-scale));
+  --tbl-cell-padding: calc(8px * var(--font-scale)) calc(10px * var(--font-scale));
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  background-color: var(--bg-dark);
+  color: var(--text-main);
+  line-height: 1.5;
+  padding: 1.5rem;
+}
+
+/* 頂部標題列與工具列 */
+.app-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--bg-card);
+  padding: 1rem 1.5rem;
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  margin-bottom: 1.5rem;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.app-title-group h1 {
+  font-size: 1.5rem;
+  color: #38bdf8;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.app-title-group p {
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+.header-controls {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+}
+
+/* 字級拉霸控制區 */
+.slider-control {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: #0f172a;
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+}
+
+.slider-control label {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.slider-control input[type="range"] {
+  width: 100px;
+  cursor: pointer;
+}
+
+/* 頁籤 Tab 導覽 */
+.tabs-header {
+  display: flex;
+  gap: 0.5rem;
+  border-bottom: 2px solid var(--border-color);
+  margin-bottom: 1.5rem;
+  overflow-x: auto;
+}
+
+.tab-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  padding: 0.75rem 1.25rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  border-bottom: 3px solid transparent;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.tab-btn:hover {
+  color: var(--text-main);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.tab-btn.active {
+  color: #38bdf8;
+  border-bottom-color: #38bdf8;
+  background: rgba(56, 189, 248, 0.08);
+}
+
+/* 頁籤內容面板 */
+.tab-panel {
+  display: none;
+  background: var(--bg-card);
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  padding: 1.5rem;
+}
+
+.tab-panel.active {
+  display: block;
+}
+
+/* 按鈕與表單控制項 */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.6rem 1.2rem;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.2s ease, transform 0.1s ease;
+}
+
+.btn:active {
+  transform: scale(0.98);
+}
+
+.btn-primary {
+  background: #0284c7;
+  color: #fff;
+}
+.btn-primary:hover {
+  background: #0369a1;
+}
+
+.btn-success {
+  background: #059669;
+  color: #fff;
+}
+.btn-success:hover {
+  background: #047857;
+}
+
+.btn-warning {
+  background: #d97706;
+  color: #fff;
+}
+.btn-warning:hover {
+  background: #b45309;
+}
+
+.btn-secondary {
+  background: #475569;
+  color: #fff;
+}
+.btn-secondary:hover {
+  background: #334155;
+}
+
+/* 通用表格樣式 */
+.data-table-container {
+  width: 100%;
+  overflow-x: auto;
+  margin-top: 1rem;
+}
+
+table.roster-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--tbl-font-size);
+  text-align: center;
+}
+
+table.roster-table th, table.roster-table td {
+  border: 1px solid var(--border-color);
+  padding: var(--tbl-cell-padding);
+}
+
+table.roster-table th {
+  background: #0f172a;
+  color: #38bdf8;
+  font-size: var(--tbl-header-size);
+  font-weight: 700;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+table.roster-table td {
+  background: #1e293b;
+  position: relative;
+  transition: background 0.15s ease;
+}
+
+table.roster-table tr:nth-child(even) td {
+  background: #182234;
+}
+
+/* 手動修改過的單元格 - 黃底標示 */
+.mark-edit-active td.edited-cell,
+td.edited-cell {
+  background-color: #713f12 !important; /* 黃褐色底 */
+  color: #fef08a !important;
+  font-weight: bold;
+  border: 2px solid #f59e0b !important;
+}
+
+/* 隱藏黃底標示時 */
+body:not(.show-edited-bg) td.edited-cell {
+  background-color: inherit !important;
+  color: inherit !important;
+  border: 1px solid var(--border-color) !important;
+}
+
+/* 違規警告單元格 */
+td.warning-cell {
+  background-color: var(--danger-bg) !important;
+  color: #fca5a5 !important;
+}
+
+td.warning-cell::after {
+  content: '⚠️';
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  font-size: 10px;
+}
+
+/* 控制列與按鈕群組 */
+.toolbar-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+  background: #0f172a;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+}
+
+.view-toggle-group {
+  display: flex;
+  gap: 0.5rem;
+}
+
+/* 列印隱藏控制 */
+@media print {
+  body {
+    background: #fff;
+    color: #000;
+    padding: 0;
+  }
+
+  .app-header, .tabs-header, .toolbar-group, .btn, .slider-control {
+    display: none !important;
+  }
+
+  .tab-panel {
+    display: block !important;
+    border: none;
+    padding: 0;
+    background: transparent;
+  }
+
+  table.roster-table th, table.roster-table td {
+    border: 1px solid #000 !important;
+    color: #000 !important;
+    background: #fff !important;
+  }
+}
