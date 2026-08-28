@@ -105,11 +105,33 @@ function getStaffName(id) {
   return s ? s.name : id
 }
 
+import { validateBidding } from '../core/biddingEngine.js'
+
 function addLock() {
   if (!newLock.value.date) {
     alert('請選擇指定日期')
     return
   }
+
+  const staffObj = props.staff.find(x => x.id === newLock.value.staffId)
+  if (staffObj) {
+    const val = validateBidding({
+      staff: staffObj,
+      slot: { shiftCode: newLock.value.shiftCode, capacity: 99, assignedStaffIds: [] },
+      dateStr: newLock.value.date,
+      slotsByDate: {},
+      staffList: props.staff,
+      leaves: props.locks,
+      constraints: { enableRestGap: true, restGapHours: 11 },
+      customShiftDefs: SHIFT_DEFS
+    })
+
+    if (!val.valid) {
+      alert(val.error)
+      return
+    }
+  }
+
   const updated = [...props.locks, { ...newLock.value }]
   emit('update:locks', updated)
   saveState('locks', updated)

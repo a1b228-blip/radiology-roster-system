@@ -83,21 +83,27 @@
     </div>
 
 
-    <!-- 驗證警示/失敗訊息 Modal -->
-    <div class="modal-overlay" v-if="errorModal.show" @click.self="errorModal.show = false">
-      <div class="modal-content card-glass modal-warning">
-        <h3>⚠️ 無法選擇此班別</h3>
-        <p class="error-msg">{{ errorModal.msg }}</p>
-        <button class="btn btn-primary modal-btn" @click="errorModal.show = false">知道了</button>
+    <!-- 驗證警示/失敗訊息 Modal (z-index 999999 絕對最頂層，超越所有抽屜 Modal) -->
+    <div class="modal-overlay modal-overlay-warning" v-if="errorModal.show" @click.self="errorModal.show = false" style="z-index: 999999 !important;">
+      <div class="modal-content card-glass modal-warning" style="border: 2px solid #ef4444; background: #fff5f5;">
+        <h3 style="color: #dc2626; font-size: 1.25rem; font-weight: 800;">⛔ 無法選擇此班別</h3>
+        <p class="error-msg" style="color: #991b1b; font-weight: 700; margin: 12px 0; line-height: 1.5;">{{ errorModal.msg }}</p>
+        <button class="btn btn-primary modal-btn" style="background: #dc2626; border-color: #dc2626; font-weight: 700; width: 100%;" @click="errorModal.show = false">知道了 (確認並關閉)</button>
       </div>
     </div>
 
     <!-- 🙋‍♂️ 方案一：同仁自主選班單日詳細抽屜 (Bidding Detail Drawer Modal) -->
-    <div class="modal-overlay" v-if="biddingDrawerModal.show" @click.self="biddingDrawerModal.show = false">
+    <div class="modal-overlay" v-if="biddingDrawerModal.show" @click.self="biddingDrawerModal.show = false" style="z-index: 10000;">
       <div class="modal-content card-glass modal-bidding-drawer">
         <div class="drawer-header">
           <h3>🙋‍♂️ 同仁自主選班 - {{ biddingDrawerModal.dateStr }} ({{ getDayOfWeekText(biddingDrawerModal.dateStr) }})</h3>
           <span class="drawer-subtitle">為同仁【{{ currentStaff?.name }}】點擊即可快速勾選或退選班別：</span>
+        </div>
+
+        <!-- 抽屜內部即時警告 Banner -->
+        <div v-if="drawerErrorMsg" class="drawer-error-banner" style="background: #fef2f2; border: 2px solid #f87171; color: #991b1b; padding: 10px 14px; border-radius: 8px; font-weight: 700; margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between;">
+          <span>{{ drawerErrorMsg }}</span>
+          <button @click="drawerErrorMsg = ''" style="background: none; border: none; font-size: 1.2rem; cursor: pointer; color: #991b1b;">×</button>
         </div>
 
         <div class="drawer-slots-grid">
@@ -408,6 +414,7 @@ watch(activeRosterRole, (newRole) => {
 })
 
 const errorModal = ref({ show: false, msg: '' })
+const drawerErrorMsg = ref('')
 
 // 🙋‍♂️ 方案一：同仁自主選班單日詳細抽屜 Modal
 const biddingDrawerModal = ref({
