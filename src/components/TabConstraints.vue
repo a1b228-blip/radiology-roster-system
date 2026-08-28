@@ -1,12 +1,19 @@
 <template>
   <div class="tab-panel">
-    <div class="card">
-      <div class="card-title">
-        <ShieldCheck :size="20" />
-        <span>排班硬性限制與合規檢核設定 (主管可自由開啟/關閉與修改參數)</span>
+    <div class="card card-glass">
+      <div class="card-title" style="justify-content: space-between; flex-wrap: wrap; gap: 8px;">
+        <div style="display: flex; align-items: center; gap: 0.5rem;">
+          <ShieldCheck :size="20" />
+          <span style="font-weight: 700; font-size: 1.1rem; color: #0d5c53;">4. 機台與合規檢核設定</span>
+        </div>
+        <!-- 💾 儲存設定按鈕 -->
+        <button class="btn btn-primary" style="font-size: 0.85rem; font-weight: 700; background: #0d5c53; border-color: #0d5c53;" @click="saveSettings">
+          <Save :size="15" />
+          <span>儲存設定</span>
+        </button>
       </div>
 
-      <div style="display: flex; flex-direction: column; gap: 1.2rem;">
+      <div style="display: flex; flex-direction: column; gap: 1.2rem; margin-top: 1rem;">
         <!-- 1. 11 小時休息間隔 -->
         <div style="background: #f8fafc; padding: 1rem; border-radius: 8px; border: 1px solid #e2e8f0;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
@@ -53,7 +60,7 @@
 
 <script setup>
 import { ref, watch } from 'vue'
-import { ShieldCheck } from 'lucide-vue-next'
+import { ShieldCheck, Save } from 'lucide-vue-next'
 
 const props = defineProps({
   constraints: { 
@@ -77,5 +84,10 @@ watch(() => props.constraints, (newVal) => {
 
 function emitUpdate() {
   emit('update:constraints', { ...settings.value })
+}
+
+function saveSettings() {
+  emitUpdate()
+  alert('✅ 【4. 機台與合規檢核】設定已成功儲存並同步至系統全域！')
 }
 </script>

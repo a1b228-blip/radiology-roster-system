@@ -113,8 +113,8 @@ export function solveRoster({ year, month, staffList, leaves = [], locks = [], h
 
     // 3. 分派 CT 白班 (D_CT - 需 CT 資格，且需與資深搭檔)
     const ctCandidates = dayPool.filter(s => s.ct)
-    // 優先選一位資深/組長
-    let ctSenior = ctCandidates.find(s => s.level === '組長' || s.level === '資深')
+    // 優先選一位資深/主管
+    let ctSenior = ctCandidates.find(s => s.level === '主管' || s.level === '資深')
     if (!ctSenior) ctSenior = ctCandidates[0] // 次佳選擇
 
     if (ctSenior) {
@@ -127,7 +127,7 @@ export function solveRoster({ year, month, staffList, leaves = [], locks = [], h
 
     // 4. 分派 MRI 白班 (D_MRI - 需 MRI 資格，需資深搭檔)
     const mriCandidates = dayPool.filter(s => s.mri && !assigned[s.id])
-    let mriSenior = mriCandidates.find(s => s.level === '組長' || s.level === '資深')
+    let mriSenior = mriCandidates.find(s => s.level === '主管' || s.level === '資深')
     if (!mriSenior) mriSenior = mriCandidates[0]
 
     if (mriSenior) {

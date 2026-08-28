@@ -5,8 +5,8 @@
         <Activity :size="24" />
       </div>
       <div>
-        <h1 class="brand-title">放射診斷科一鍵排班系統 v1.0</h1>
-        <div class="brand-subtitle">100% 離線運作 • 機台資格搭檔 • 勞基法 11h 休息檢核 • 原生 Excel 匯出</div>
+        <h1 class="brand-title">佳里奇美醫院 放射科排班系統 V2.0</h1>
+        <div class="brand-subtitle">自主選班 2.0 • 管理者開班格子 • 跨職類隔離 • 雙向即時驗證 • 100% 離線</div>
       </div>
     </div>
 
@@ -36,28 +36,27 @@
         <span>標示手動修改</span>
       </label>
 
-      <!-- 列印按鈕 -->
-      <button class="btn btn-outline" @click="$emit('print')">
-        <Printer :size="16" />
-        <span>列印班表</span>
-      </button>
 
-      <!-- 匯出 Excel 按鈕 -->
-      <button class="btn btn-primary" @click="$emit('export-excel')">
-        <FileSpreadsheet :size="16" />
-        <span>匯出 Excel</span>
-      </button>
 
-      <!-- 備份資料按鈕 -->
-      <button class="btn btn-secondary" @click="$emit('backup-json')">
+      <!-- 💾 一鍵儲存 / 下載系統設定檔 -->
+      <button 
+        class="btn btn-primary" 
+        style="background: #0d5c53; border-color: #0d5c53; font-weight: 700;" 
+        @click="$emit('backup-json')"
+        title="將全科名冊、班別定義、請假與選班結果打包下載為 JSON 備份檔"
+      >
         <Download :size="16" />
-        <span>下載備份</span>
+        <span>💾 下載系統設定檔</span>
       </button>
 
-      <!-- 載入備份按鈕 -->
-      <label class="btn btn-secondary" style="cursor: pointer;">
+      <!-- 📥 一鍵匯入 / 還原系統設定檔 -->
+      <label 
+        class="btn btn-primary" 
+        style="background: #0284c7; border-color: #0284c7; font-weight: 700; cursor: pointer;"
+        title="選取 JSON 備份檔，一鍵還原系統全域設定與排班狀態"
+      >
         <Upload :size="16" />
-        <span>載入備份</span>
+        <span>📥 一鍵還原設定檔</span>
         <input type="file" accept=".json" style="display: none;" @change="$emit('load-backup', $event)" />
       </label>
     </div>

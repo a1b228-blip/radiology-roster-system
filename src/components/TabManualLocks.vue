@@ -1,20 +1,27 @@
 <template>
   <div class="tab-panel">
-    <div class="card">
-      <div class="card-title">
-        <Lock :size="20" />
-        <span>人工指定單日班別 / 班別鎖定 (Manual Lock)</span>
+    <div class="card card-glass">
+      <div class="card-title" style="justify-content: space-between; flex-wrap: wrap; gap: 8px;">
+        <div style="display: flex; align-items: center; gap: 0.5rem;">
+          <Lock :size="20" />
+          <span style="font-weight: 700; font-size: 1.1rem; color: #0d5c53;">人工指定單日班別 / 班別鎖定設定</span>
+        </div>
+        <!-- 💾 儲存設定按鈕 -->
+        <button class="btn btn-primary" style="font-size: 0.85rem; font-weight: 700; background: #0d5c53; border-color: #0d5c53;" @click="saveSettings">
+          <Save :size="15" />
+          <span>儲存設定</span>
+        </button>
       </div>
 
       <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.8rem; margin-bottom: 1rem;">
         <div>
-          <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.3rem;">日期</label>
+          <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.3rem;">指定日期</label>
           <input type="date" v-model="newLock.date" style="width: 100%; padding: 0.5rem; border: 1px solid #cbd5e1; border-radius: 6px;" />
         </div>
         <div>
-          <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.3rem;">放射師</label>
+          <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.3rem;">同仁姓名</label>
           <select v-model="newLock.staffId" style="width: 100%; padding: 0.5rem; border: 1px solid #cbd5e1; border-radius: 6px;">
-            <option v-for="s in staff" :key="s.id" :value="s.id">{{ s.id }} {{ s.name }}</option>
+            <option v-for="s in staff" :key="s.id" :value="s.id">[{{ s.role }}] {{ s.id }} {{ s.name }}</option>
           </select>
         </div>
         <div>
@@ -25,15 +32,15 @@
         </div>
         <div>
           <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.3rem;">指定事由</label>
-          <input type="text" v-model="newLock.note" placeholder="例如: 科內協調、訓練支援" style="width: 100%; padding: 0.5rem; border: 1px solid #cbd5e1; border-radius: 6px;" />
+          <input type="text" v-model="newLock.note" placeholder="例如: 科內協調、支援帶導" style="width: 100%; padding: 0.5rem; border: 1px solid #cbd5e1; border-radius: 6px;" />
         </div>
       </div>
 
-      <button class="btn btn-primary" @click="addLock">新增指定班別</button>
+      <button class="btn btn-secondary" @click="addLock">新增指定班別</button>
     </div>
 
     <!-- 鎖定清單 -->
-    <div class="card">
+    <div class="card card-glass" style="margin-top: 1rem;">
       <div class="card-title">
         <ListCheck :size="20" />
         <span>人工指定班別清單</span>
@@ -44,7 +51,7 @@
           <thead>
             <tr>
               <th>日期</th>
-              <th>放射師員號</th>
+              <th>員號</th>
               <th>姓名</th>
               <th>指定班別</th>
               <th>事由</th>
@@ -74,7 +81,7 @@
 
 <script setup>
 import { ref } from 'vue'
-import { Lock, ListCheck } from 'lucide-vue-next'
+import { Lock, ListCheck, Save } from 'lucide-vue-next'
 import { SHIFT_DEFS } from '../core/types.js'
 
 const props = defineProps({
@@ -87,9 +94,11 @@ const emit = defineEmits(['update:locks'])
 const newLock = ref({
   date: new Date().toISOString().slice(0, 10),
   staffId: props.staff[0]?.id || 'R1',
-  shiftCode: 'D_CT',
+  shiftCode: 'D',
   note: ''
 })
+
+import { saveState } from '../core/storage.js'
 
 function getStaffName(id) {
   const s = props.staff.find(x => x.id === id)
@@ -103,12 +112,24 @@ function addLock() {
   }
   const updated = [...props.locks, { ...newLock.value }]
   emit('update:locks', updated)
+  saveState('locks', updated)
+  alert(`✅ 已成功指定同仁 [${getStaffName(newLock.value.staffId)}] 於 ${newLock.value.date} 出勤 [${newLock.value.shiftCode}] 班別！已同步至選班日曆。`)
   newLock.value.note = ''
 }
 
 function removeLock(idx) {
-  const updated = [...props.locks]
-  updated.splice(idx, 1)
-  emit('update:locks', updated)
+  if (confirm('確定刪除此筆人工指定班別嗎？')) {
+    const updated = [...props.locks]
+    updated.splice(idx, 1)
+    emit('update:locks', updated)
+    saveState('locks', updated)
+  }
+}
+
+function saveSettings() {
+  emit('update:locks', props.locks)
+  saveState('locks', props.locks)
+  alert('✅ 【4. 人工指定班別】設定已成功儲存，並已 100% 自動同步連動至「同仁自主選班」日曆！')
 }
 </script>
+
