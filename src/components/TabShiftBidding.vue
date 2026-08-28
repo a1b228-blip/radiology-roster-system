@@ -644,10 +644,12 @@ function toggleSlotBidding(slot, dateStr) {
       slotsByDate: props.slotsByDate,
       staffList: props.staffList,
       leaves: props.leaves,
-      constraints: props.constraints
+      constraints: props.constraints,
+      customShiftDefs: props.customShiftDefs
     })
 
     if (!val.valid) {
+      alert(val.error)
       errorModal.value = { show: true, msg: val.error }
       return
     }

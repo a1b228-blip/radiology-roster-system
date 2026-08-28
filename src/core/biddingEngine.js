@@ -130,75 +130,98 @@ export function validateBidding({
     return { valid: false, error: `${staff.name} 設定為「不可上夜班/新進人員」，無法選擇急診大小夜班` }
   }
 
-  // 6. 勞基法 11 小時休息間隔精密防爆比對
+  // 6. 勞基法 11 小時班別休息間隔 (Rest Gap Constraint)
   if (constraints.enableRestGap !== false) {
-    try {
-      const prevDate = getPrevDateStr(dateStr)
-      const nextDate = getNextDateStr(dateStr)
+    const minRestGapHours = (constraints.restGapHours !== undefined && constraints.restGapHours !== null)
+      ? Number(constraints.restGapHours)
+      : 11.0
 
-      const prevDaySlots = prevDate ? (slotsByDate[prevDate] || []) : []
-      const nextDaySlots = nextDate ? (slotsByDate[nextDate] || []) : []
+    const prevDate = getPrevDateStr(dateStr)
+    const nextDate = getNextDateStr(dateStr)
 
-      function getShiftTimes(dStr, code) {
-        if (!dStr) return null
-        const dateObj = parseStandardDate(dStr)
-        if (!dateObj) return null
-        const dateBase = dateObj.getTime()
-        
-        let startHour = 8.0
-        let endHour = 16.5
+    const defsToUse = customShiftDefs || SHIFT_DEFS
 
-        if (code === 'E') { startHour = 16.0; endHour = 24.5; }
-        else if (code === 'N') { startHour = 0.0; endHour = 8.5; }
-        else if (code === 'CALL' || code === 'CALL_NURSE') { startHour = 8.0; endHour = 32.0; }
+    function getShiftTimes(dStr, code) {
+      if (!dStr || !code) return null
+      const dateObj = parseStandardDate(dStr)
+      if (!dateObj) return null
+      const dateBase = dateObj.getTime()
 
-        return {
-          startMs: dateBase + startHour * 3600 * 1000,
-          endMs: dateBase + endHour * 3600 * 1000
-        }
+      const def = defsToUse[code] || SHIFT_DEFS[code]
+      const { startHour, endHour } = parseShiftTime(def?.time, code)
+
+      return {
+        startMs: dateBase + startHour * 3600 * 1000,
+        endMs: dateBase + endHour * 3600 * 1000
       }
+    }
 
-      const currentTimes = getShiftTimes(dateStr, slot.shiftCode)
+    const currentTimes = getShiftTimes(dateStr, slot.shiftCode)
 
-      if (currentTimes) {
-        // A. 前一日班間休息檢查
-        for (const pSlot of prevDaySlots) {
+    if (currentTimes) {
+      // A. 前一日班間休息檢查 (掃描 slotsByDate + leaves)
+      const prevShifts = []
+      if (prevDate && slotsByDate[prevDate]) {
+        for (const pSlot of slotsByDate[prevDate]) {
           if (Array.isArray(pSlot.assignedStaffIds) && pSlot.assignedStaffIds.includes(staff.id)) {
-            const prevTimes = getShiftTimes(prevDate, pSlot.shiftCode)
-            if (prevTimes) {
-              const gapHours = (currentTimes.startMs - prevTimes.endMs) / (3600 * 1000)
-              if (gapHours < 11.0) {
-                const prevShiftName = getShiftName(pSlot.shiftCode)
-                const targetShiftName = getShiftName(slot.shiftCode)
-                return {
-                  valid: false,
-                  error: `⛔ 違法禁止選填（勞基法第 34 條休息滿 11h）：同仁【${staff.name}】於前一日 (${prevDate}) 出勤 [${prevShiftName}]，於 ${dateStr} 欲選 [${targetShiftName}]，兩班間隔僅 ${gapHours.toFixed(1)} 小時，低於法定 11 小時限制！`
-                }
-              }
-            }
+            prevShifts.push(pSlot.shiftCode)
           }
         }
+      }
+      if (prevDate && Array.isArray(leaves)) {
+        for (const l of leaves) {
+          if (l.staffId === staff.id && (l.date === prevDate || l.start === prevDate) && l.shiftCode) {
+            prevShifts.push(l.shiftCode)
+          }
+        }
+      }
 
-        // B. 後一日班間休息檢查
-        for (const nSlot of nextDaySlots) {
-          if (Array.isArray(nSlot.assignedStaffIds) && nSlot.assignedStaffIds.includes(staff.id)) {
-            const nextTimes = getShiftTimes(nextDate, nSlot.shiftCode)
-            if (nextTimes) {
-              const gapHours = (nextTimes.startMs - currentTimes.endMs) / (3600 * 1000)
-              if (gapHours < 11.0) {
-                const nextShiftName = getShiftName(nSlot.shiftCode)
-                const targetShiftName = getShiftName(slot.shiftCode)
-                return {
-                  valid: false,
-                  error: `⛔ 違法禁止選填（勞基法第 34 條休息滿 11h）：同仁【${staff.name}】在後一日 (${nextDate}) 已排 [${nextShiftName}]，於 ${dateStr} 選 [${targetShiftName}] 將導致兩班間隔僅 ${gapHours.toFixed(1)} 小時，低於法定 11 小時限制！`
-                }
-              }
+      for (const pCode of prevShifts) {
+        const prevTimes = getShiftTimes(prevDate, pCode)
+        if (prevTimes) {
+          const gapHours = (currentTimes.startMs - prevTimes.endMs) / (3600 * 1000)
+          if (gapHours < minRestGapHours) {
+            const prevShiftName = getShiftName(pCode, defsToUse)
+            const targetShiftName = getShiftName(slot.shiftCode, defsToUse)
+            return {
+              valid: false,
+              error: `⛔ 違法禁止選填（勞基法第 34 條休息滿 ${minRestGapHours}h）：同仁【${staff.name}】於前一日 (${prevDate}) 出勤 [${prevShiftName}]，於 ${dateStr} 欲選 [${targetShiftName}]，兩班間隔僅 ${gapHours.toFixed(1)} 小時，低於法定 ${minRestGapHours} 小時限制！`
             }
           }
         }
       }
-    } catch (e) {
-      console.warn('11h rest gap check bypassed safely:', e)
+
+      // B. 後一日班間休息檢查 (掃描 slotsByDate + leaves)
+      const nextShifts = []
+      if (nextDate && slotsByDate[nextDate]) {
+        for (const nSlot of slotsByDate[nextDate]) {
+          if (Array.isArray(nSlot.assignedStaffIds) && nSlot.assignedStaffIds.includes(staff.id)) {
+            nextShifts.push(nSlot.shiftCode)
+          }
+        }
+      }
+      if (nextDate && Array.isArray(leaves)) {
+        for (const l of leaves) {
+          if (l.staffId === staff.id && (l.date === nextDate || l.start === nextDate) && l.shiftCode) {
+            nextShifts.push(l.shiftCode)
+          }
+        }
+      }
+
+      for (const nCode of nextShifts) {
+        const nextTimes = getShiftTimes(nextDate, nCode)
+        if (nextTimes) {
+          const gapHours = (nextTimes.startMs - currentTimes.endMs) / (3600 * 1000)
+          if (gapHours < minRestGapHours) {
+            const nextShiftName = getShiftName(nCode, defsToUse)
+            const targetShiftName = getShiftName(slot.shiftCode, defsToUse)
+            return {
+              valid: false,
+              error: `⛔ 違法禁止選填（勞基法第 34 條休息滿 ${minRestGapHours}h）：同仁【${staff.name}】在後一日 (${nextDate}) 已排 [${nextShiftName}]，於 ${dateStr} 選 [${targetShiftName}] 將導致兩班間隔僅 ${gapHours.toFixed(1)} 小時，低於法定 ${minRestGapHours} 小時限制！`
+            }
+          }
+        }
+      }
     }
   }
 
@@ -333,8 +356,65 @@ export function updateSlotInDate(slotsByDate, dateStr, slotId, { capacity, requi
   return updatedSlots
 }
 
-function getPrevDateStr(dateStr) {
-  const d = new Date(dateStr)
-  d.setDate(d.getDate() - 1)
-  return d.toISOString().split('T')[0]
+export function getPrevDateStr(dateStr) {
+  if (!dateStr) return ''
+  const [y, m, d] = dateStr.split('-').map(Number)
+  if (isNaN(y) || isNaN(m) || isNaN(d)) return ''
+  const dt = new Date(y, m - 1, d)
+  dt.setDate(dt.getDate() - 1)
+  const year = dt.getFullYear()
+  const month = String(dt.getMonth() + 1).padStart(2, '0')
+  const day = String(dt.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
 }
+
+export function getNextDateStr(dateStr) {
+  if (!dateStr) return ''
+  const [y, m, d] = dateStr.split('-').map(Number)
+  if (isNaN(y) || isNaN(m) || isNaN(d)) return ''
+  const dt = new Date(y, m - 1, d)
+  dt.setDate(dt.getDate() + 1)
+  const year = dt.getFullYear()
+  const month = String(dt.getMonth() + 1).padStart(2, '0')
+  const day = String(dt.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+export function parseStandardDate(dateStr) {
+  if (!dateStr) return null
+  const [y, m, d] = dateStr.split('-').map(Number)
+  if (isNaN(y) || isNaN(m) || isNaN(d)) return null
+  return new Date(y, m - 1, d)
+}
+
+export function getShiftName(shiftCode, customShiftDefs = SHIFT_DEFS) {
+  const def = (customShiftDefs && customShiftDefs[shiftCode]) || SHIFT_DEFS[shiftCode]
+  return def ? `${def.name} (${shiftCode})` : shiftCode
+}
+
+export function parseShiftTime(timeStr, shiftCode) {
+  let startHour = 8.0
+  let endHour = 16.5
+
+  if (timeStr && timeStr.includes('-')) {
+    const parts = timeStr.split('-').map(s => s.trim())
+    if (parts.length === 2) {
+      const parseH = (hStr) => {
+        const [h, m] = hStr.split(':').map(Number)
+        return (isNaN(h) ? 8 : h) + ((isNaN(m) ? 0 : m) / 60)
+      }
+      startHour = parseH(parts[0])
+      endHour = parseH(parts[1])
+      if (endHour <= startHour && endHour < 12) {
+        endHour += 24.0
+      }
+    }
+  } else {
+    if (shiftCode === 'E') { startHour = 16.0; endHour = 24.5; }
+    else if (shiftCode === 'N') { startHour = 0.0; endHour = 8.5; }
+    else if (shiftCode === 'CALL' || shiftCode === 'CALL_NURSE') { startHour = 8.0; endHour = 32.0; }
+  }
+
+  return { startHour, endHour }
+}
+
