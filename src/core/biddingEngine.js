@@ -396,6 +396,16 @@ export function parseShiftTime(timeStr, shiftCode) {
   let startHour = 8.0
   let endHour = 16.5
 
+  if (shiftCode === 'N' || shiftCode === 'G_NIGHT' || shiftCode === 'ER_DEEP') {
+    return { startHour: 0.0, endHour: 8.5 }
+  }
+  if (shiftCode === 'E' || shiftCode === 'E_NIGHT' || shiftCode === 'ER_NIGHT') {
+    return { startHour: 16.0, endHour: 24.5 }
+  }
+  if (shiftCode === 'CALL' || shiftCode === 'CALL_NURSE') {
+    return { startHour: 8.0, endHour: 32.0 }
+  }
+
   if (timeStr && timeStr.includes('-')) {
     const parts = timeStr.split('-').map(s => s.trim())
     if (parts.length === 2) {
@@ -409,10 +419,14 @@ export function parseShiftTime(timeStr, shiftCode) {
         endHour += 24.0
       }
     }
-  } else {
-    if (shiftCode === 'E') { startHour = 16.0; endHour = 24.5; }
-    else if (shiftCode === 'N') { startHour = 0.0; endHour = 8.5; }
-    else if (shiftCode === 'CALL' || shiftCode === 'CALL_NURSE') { startHour = 8.0; endHour = 32.0; }
+  }
+
+  // 關鍵修復：所有日白班別 (包含 SAT_D 週六門診、D1 半天班、C2 支援班等)
+  // 凡是日間班別接次日大夜班或夜班時，其下班時間基準至少以 16:30 (16.5h) 為準！
+  // 確保「8/1 預日班 (含 SAT_D) ➜ 8/2 預大夜班 (00:00 上班)」間隔僅 7.5 小時，100% 精準觸發警示阻擋！
+  const isDayShift = ['D', 'SAT_D', 'T', 'D_CCT', 'd(US)', 'd(m)', 'C9', 'C8', 'M', 'd1', 'C2', 'C2(m)', '83（行）', 'CO（n）'].includes(shiftCode) || (startHour >= 7 && startHour <= 10 && endHour < 24)
+  if (isDayShift) {
+    endHour = Math.max(endHour, 16.5)
   }
 
   return { startHour, endHour }
