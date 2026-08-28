@@ -118,7 +118,10 @@ export const DEFAULT_COMPLIANCE_RULES = [
   { id: 'R08', category: '科內營運計畫', name: '高階攝影房 (CT/MRI) 主管資深帶導門檻', lawRef: '品質控管規範', weight: 90, enabled: true, action: '⚠️ 專業帶導警示與人次檢核' },
   { id: 'R09', category: '院內健康關懷', name: '連續上班超過 6 天疲勞預警', lawRef: '健康促進計畫', weight: 80, enabled: true, action: '💡 黃色溫馨防過勞提示' },
   { id: 'R10', category: '院內健康關懷', name: '單月急診夜班上限 (預設 6 天) 關懷提示', lawRef: '夜班關懷條例', weight: 80, enabled: true, action: '💡 排班負擔關懷提醒' },
-  { id: 'R11', category: '個人化排班', name: '同仁自主選班與預期休假意願滿足率', lawRef: '同仁滿意度關懷', weight: 50, enabled: true, action: '💡 彈性意願滿足' }
+  { id: 'R11', category: '個人化排班', name: '同仁自主選班與預期休假意願滿足率', lawRef: '同仁滿意度關懷', weight: 50, enabled: true, action: '💡 彈性意願滿足' },
+  { id: 'R12', category: '勞基法剛性規範', name: '日班/晚班/小夜班隔天禁止接大夜班 N (不足 11h 阻擋)', lawRef: '勞基法第 34 條', weight: 100, enabled: true, action: '⛔ 硬性強制作業不可違反 (系統禁止選班)' },
+  { id: 'R13', category: '勞基法剛性規範', name: 'MRI 晚班 e(m) 隔天禁止接 08:00 日班 (10.5h 不足阻擋)', lawRef: '勞基法第 34 條', weight: 100, enabled: true, action: '⛔ 硬性強制作業不可違反 (系統禁止選班)' },
+  { id: 'R14', category: '科內營運計畫', name: 'MRI 白班 d(m) 隱性接班硬性禁忌限制條款', lawRef: '科內隱性排班規範', weight: 100, enabled: true, action: '⛔ 硬性強制作業不可違反 (系統禁止選班)' }
 ]
 
 // 預設第二專長月指定天數
