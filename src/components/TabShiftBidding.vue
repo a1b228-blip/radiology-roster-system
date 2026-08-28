@@ -642,8 +642,11 @@ function toggleSlotBidding(slot, dateStr) {
   const isMe = slot.assignedStaffIds.includes(selectedStaffId.value)
 
   if (isMe) {
+    drawerErrorMsg.value = ''
     slot.assignedStaffIds = slot.assignedStaffIds.filter(id => id !== selectedStaffId.value)
+    emit('update:slotsByDate', JSON.parse(JSON.stringify(props.slotsByDate)))
   } else {
+    drawerErrorMsg.value = ''
     const val = validateBidding({
       staff: currentStaff.value,
       slot,
@@ -652,12 +655,13 @@ function toggleSlotBidding(slot, dateStr) {
       staffList: props.staffList,
       leaves: props.leaves,
       constraints: props.constraints,
-      customShiftDefs: props.customShiftDefs
+      customShiftDefs: props.shiftDefs
     })
 
     if (!val.valid) {
-      alert(val.error)
+      drawerErrorMsg.value = val.error
       errorModal.value = { show: true, msg: val.error }
+      alert(val.error)
       return
     }
 
@@ -666,6 +670,7 @@ function toggleSlotBidding(slot, dateStr) {
     }
 
     slot.assignedStaffIds.push(selectedStaffId.value)
+    emit('update:slotsByDate', JSON.parse(JSON.stringify(props.slotsByDate)))
   }
 }
 
