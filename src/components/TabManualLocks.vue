@@ -86,7 +86,8 @@ import { SHIFT_DEFS } from '../core/types.js'
 
 const props = defineProps({
   staff: { type: Array, default: () => [] },
-  locks: { type: Array, default: () => [] }
+  locks: { type: Array, default: () => [] },
+  slotsByDate: { type: Object, default: () => ({}) }
 })
 
 const emit = defineEmits(['update:locks'])
@@ -119,7 +120,7 @@ function addLock() {
       staff: staffObj,
       slot: { shiftCode: newLock.value.shiftCode, capacity: 99, assignedStaffIds: [] },
       dateStr: newLock.value.date,
-      slotsByDate: {},
+      slotsByDate: props.slotsByDate,
       staffList: props.staff,
       leaves: props.locks,
       constraints: { enableRestGap: true, restGapHours: 11 },

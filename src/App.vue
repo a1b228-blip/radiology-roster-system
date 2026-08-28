@@ -123,6 +123,7 @@
       <TabManualLocks 
         v-if="activeTab === 'manual'"
         :staff="staff"
+        :slotsByDate="slotsByDate"
         v-model:locks="locks"
       />
 
