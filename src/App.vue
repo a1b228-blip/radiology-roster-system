@@ -176,7 +176,8 @@ import TabShiftBidding from './components/TabShiftBidding.vue'
 import TabScheduleResult from './components/TabScheduleResult.vue'
 
 
-import { DEFAULT_STAFF, SHIFT_DEFS, DEFAULT_COMPLIANCE_RULES } from './core/types.js'
+import { DEFAULT_STAFF, SHIFT_DEFS, DEFAULT_COMPLIANCE_RULES, DEFAULT_SPECIALTY_TARGETS } from './core/types.js'
+
 
 import { solveRoster } from './core/solver.js'
 import { exportRosterToExcel } from './core/exporter.js'
@@ -208,8 +209,9 @@ const fontScale = ref(1.0)
 const showEditHighlight = ref(true)
 const activeTab = ref('bidding') // 預設開啟同仁自主選班 Tab
 
-const specialtyTargets = ref(loadState('specialtyTargets', {}))
-const complianceRules = ref(loadState('complianceRules', DEFAULT_COMPLIANCE_RULES))
+const specialtyTargets = ref(loadState('specialtyTargets', null) || DEFAULT_SPECIALTY_TARGETS)
+const complianceRules = ref(loadState('complianceRules', null) || DEFAULT_COMPLIANCE_RULES)
+
 
 // 監聽並持久化儲存
 watch([year, month, holidays, staff, shiftDefs, constraints, leaves, locks, roster, warnings, manualEdits, slotsByDate, specialtyTargets, complianceRules], () => {

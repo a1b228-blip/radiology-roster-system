@@ -121,3 +121,14 @@ export const DEFAULT_COMPLIANCE_RULES = [
   { id: 'R11', category: '個人化排班', name: '同仁自主選班與預期休假意願滿足率', lawRef: '同仁滿意度關懷', weight: 50, enabled: true, action: '💡 彈性意願滿足' }
 ]
 
+// 預設第二專長月指定天數
+export const DEFAULT_SPECIALTY_TARGETS = {
+  '940356': { us: 8, mammo: 4, mri: 4 }, // 廖雪貞
+  '100414': { us: 8 },                   // 林千鐘
+  'A105W2': { us: 8 },                   // 張鼎晨
+  '970733': { mri: 6, angio: 4 },        // 林子翔
+  '991239': { mri: 6, angio: 4 },        // 張宇晞
+  'A00534': { mri: 6 }                    // 江瑞益
+}
+
+
