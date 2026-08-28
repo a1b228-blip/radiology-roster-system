@@ -121,7 +121,7 @@ export const DEFAULT_COMPLIANCE_RULES = [
   { id: 'R11', category: '個人化排班', name: '同仁自主選班與預期休假意願滿足率', lawRef: '同仁滿意度關懷', weight: 50, enabled: true, action: '💡 彈性意願滿足' },
   { id: 'R12', category: '勞基法剛性規範', name: '日班/晚班/小夜班隔天禁止接大夜班 N (不足 11h 阻擋)', lawRef: '勞基法第 34 條', weight: 100, enabled: true, action: '⛔ 硬性強制作業不可違反 (系統禁止選班)' },
   { id: 'R13', category: '勞基法剛性規範', name: 'MRI 晚班 e(m) 隔天禁止接 08:00 日班 (10.5h 不足阻擋)', lawRef: '勞基法第 34 條', weight: 100, enabled: true, action: '⛔ 硬性強制作業不可違反 (系統禁止選班)' },
-  { id: 'R14', category: '科內營運計畫', name: 'MRI 白班 d(m) 隱性接班硬性禁忌限制條款', lawRef: '科內隱性排班規範', weight: 100, enabled: true, action: '⛔ 硬性強制作業不可違反 (系統禁止選班)' }
+  { id: 'R14', category: '勞基法剛性規範', name: '一般小夜班 E 隔天禁止接指定班別 (00:30 下班不足 11h 阻擋)', lawRef: '勞基法第 34 條', weight: 100, enabled: true, action: '⛔ 硬性強制作業不可違反 (系統禁止選班)' }
 ]
 
 // 預設第二專長月指定天數
