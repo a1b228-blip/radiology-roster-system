@@ -64,6 +64,19 @@
     </header>
 
 
+    <!-- 🔒 勞基法與科內 3 大硬性禁止接班規範 醒目提示欄 -->
+    <div class="rules-notice-banner card-glass" style="background: #fff7ed; border: 1px solid #ffedd5; padding: 10px 16px; border-radius: 8px; margin-bottom: 1rem;">
+      <div style="font-weight: 800; color: #c2410c; font-size: 0.9rem; margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
+        <ShieldAlert :size="16" />
+        <span>🔒 系統硬性鎖死 — 3 大禁止接班與 11 小時休息間隔規範：</span>
+      </div>
+      <div style="font-size: 0.82rem; color: #9a3412; display: flex; flex-direction: column; gap: 2px;">
+        <div>• <strong>規範一 (禁接大夜)</strong>：全日間/晚班/小夜班 (D, E, d(US), d1, T, C9, d(m), e(m), C8, C2(m), C2, M) ➜ 隔天 100% 禁接大夜班 N。</div>
+        <div>• <strong>規範二 (MRI晚班限制)</strong>：MRI 晚班 e(m) (21:30 下班) ➜ 隔天 100% 禁接 08:00 日班 (D, d(US), d1, T, d(m))，休息僅 10.5h 未滿 11h。</div>
+        <div>• <strong>規範三 (小夜班限制)</strong>：一般小夜班 E (00:30 下班) ➜ 隔天 100% 禁接所有日班/晚班/大夜班 (D, N, d(US), d1, T, C9, d(m), e(m), C8, C2(m), C2, M)，休息僅 7.5h 未滿 11h。</div>
+      </div>
+    </div>
+
     <!-- 管理者控制欄 (已依照指令刪除快捷按鈕與智慧填補按鈕) -->
     <div class="admin-toolbar card-glass">
       <div class="toolbar-info">
