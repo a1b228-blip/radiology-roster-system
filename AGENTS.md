@@ -1,7 +1,7 @@
 # 🩻 佳里奇美醫院 放射科排班系統 V2.0 (專案藍圖)
 
 > 本檔為跨 Agent 通用的專案藍圖（AGENTS.md 開放標準）。任何 Agent 的每個 session 都應先讀本檔＋`handoff.md`。
-> 💡 **版本雙保存說明**：本目錄為 **放射科排班系統 V2.0**，第一版系統完整保存於 `/Users/jiangruiyi/Documents/antigravity/放射科排班系統v1`，雙版本獨立保存不相衝突。
+> 💡 **版本說明**：本目錄為 **放射科排班系統 V2.0**，是目前唯一維護的版本（V1 舊版已於 2026-09-30 移除）。
 
 ## 專案簡介 (V2.0 升級版)
 本專案為 **「佳里奇美醫院 放射科排班系統 V2.0」**。
@@ -11,8 +11,7 @@
 3. **跨職類 (放射師 / 護理人員 / 書記) 班表隔離與獨立視角過濾**。
 4. **Excel 報表按職類獨立 Sheet 分頁匯出**與 100% 離線運作。
 
-## 雙版本保存位置對照
-- **V1.0 版本**：[`/Users/jiangruiyi/Documents/antigravity/放射科排班系統v1`](file:///Users/jiangruiyi/Documents/antigravity/%E6%94%BE%E5%B0%84%E7%A7%91%E6%8E%92%E7%8F%AD%E7%B3%BB%E7%B5%B1v1)
+## 專案位置
 - **V2.0 版本**：[`/Users/jiangruiyi/Documents/antigravity/放射診斷科排班系統`](file:///Users/jiangruiyi/Documents/antigravity/%E6%94%BE%E5%B0%84%E8%A8%BA%E6%96%B7%E7%A7%91%E6%8E%92%E7%8F%AD%E7%B3%BB%E7%B5%B1)
 
 ## 關鍵路線圖
