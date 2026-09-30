@@ -51,46 +51,82 @@
         </button>
       </div>
 
-      <!-- 同仁選班視角工具 -->
-      <div class="user-selector-group" v-if="currentMode === 'bidding'">
-        <label class="section-title"><User :size="18" /> 切換【{{ activeRosterRole }}】同仁：</label>
-        <select v-model="selectedStaffId" class="input-select staff-select">
-          <option v-for="s in filteredStaffByRole" :key="s.id" :value="s.id">
-            {{ s.name }} - {{ getStaffSkillsBadge(s) }}
-          </option>
-        </select>
-      </div>
+    </header>
 
-      <!-- 🎯 個人每月第二專長目標天數與未上滿即時提醒看板 -->
-      <div class="specialty-progress-panel" v-if="currentMode === 'bidding' && activeRosterRole === '放射師' && specialtyProgress.length">
-        <div class="specialty-progress-title">🎯 【{{ currentStaff?.name }}】本月第二專長目標天數進度</div>
-        <div
-          v-for="item in specialtyProgress"
-          :key="item.key"
-          class="specialty-progress-item"
-          :class="item.target > 0 ? (item.isMet ? 'is-met' : 'is-short') : 'is-info'"
-        >
-          <template v-if="item.target > 0 && !item.isMet">⚠️ 【{{ item.name }}】本月基本應上滿 {{ item.target }} 天，目前已選 {{ item.count }} 天（尚差 {{ item.remain }} 天未上滿，請優先選填！）</template>
-          <template v-else-if="item.target > 0">✅ 【{{ item.name }}】已上滿達標（已選 {{ item.count }} / {{ item.target }} 天）</template>
-          <template v-else>ℹ️ 具備【{{ item.name }}】第二專長（本月未設最低天數門檻，已選 {{ item.count }} 天）</template>
+    <!-- 🧑‍⚕️ 個人選班工作台：切換同仁 + 本月統計 + 第二專長進度 + 篩選 -->
+    <section class="workbench card-glass" v-if="currentMode === 'bidding'">
+      <div class="wb-top">
+        <div class="wb-staff">
+          <label class="wb-label"><User :size="16" /> 切換【{{ activeRosterRole }}】同仁：</label>
+          <select v-model="selectedStaffId" class="input-select staff-select">
+            <option v-for="s in filteredStaffByRole" :key="s.id" :value="s.id">
+              {{ s.name }} - {{ getStaffSkillsBadge(s) }}
+            </option>
+          </select>
+        </div>
+        <div class="wb-stats">
+          <div class="wb-stat"><span class="wb-stat-val">{{ myStats.totalDays }}</span><span class="wb-stat-label">本月已選班數</span></div>
+          <div class="wb-stat"><span class="wb-stat-val">{{ myStats.totalHours }}</span><span class="wb-stat-label">預估工時 (h)</span></div>
+          <div class="wb-stat"><span class="wb-stat-val">{{ myStats.nightCount }}</span><span class="wb-stat-label">夜班 (E/N)</span></div>
+          <div class="wb-stat"><span class="wb-stat-val">{{ myStats.weekendCount }}</span><span class="wb-stat-label">週末班</span></div>
         </div>
       </div>
 
-    </header>
-
-
-    <!-- 🔒 勞基法與科內 3 大硬性禁止接班規範 醒目提示欄 -->
-    <div class="rules-notice-banner card-glass" style="background: #fff7ed; border: 1px solid #ffedd5; padding: 10px 16px; border-radius: 8px; margin-bottom: 1rem;">
-      <div style="font-weight: 800; color: #c2410c; font-size: 0.9rem; margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
-        <ShieldAlert :size="16" />
-        <span>🔒 系統硬性鎖死 — 3 大禁止接班與 11 小時休息間隔規範：</span>
+      <!-- 🎯 第二專長進度條 -->
+      <div class="wb-progress" v-if="activeRosterRole === '放射師' && specialtyProgress.length">
+        <div class="wb-section-title">🎯 【{{ currentStaff?.name }}】本月第二專長目標天數進度</div>
+        <div class="progress-list">
+          <div v-for="item in specialtyProgress" :key="item.key" class="progress-row" :class="getProgressClass(item)">
+            <span class="progress-name">{{ item.name }}</span>
+            <div class="progress-track"><div class="progress-fill" :style="{ width: getProgressPercent(item) + '%' }"></div></div>
+            <span class="progress-text">{{ getProgressText(item) }}</span>
+          </div>
+        </div>
+        <div
+          v-for="item in unmetSpecialties"
+          :key="'unmet_' + item.key"
+          class="specialty-progress-item is-short"
+        >⚠️ 【{{ item.name }}】本月基本應上滿 {{ item.target }} 天，目前已選 {{ item.count }} 天（尚差 {{ item.remain }} 天未上滿，請優先選填！）</div>
       </div>
-      <div style="font-size: 0.82rem; color: #9a3412; display: flex; flex-direction: column; gap: 2px;">
+
+      <!-- 🔎 日曆班別篩選 -->
+      <div class="wb-filters">
+        <span class="wb-section-title">篩選日曆班別：</span>
+        <button
+          v-for="f in visibleFilterOptions"
+          :key="f.key"
+          class="filter-chip"
+          :class="{ active: bidFilter === f.key }"
+          @click="bidFilter = f.key"
+        >{{ f.label }}</button>
+        <span class="legend">
+          <span class="legend-item legend-me">✓ 本人已選</span>
+          <span class="legend-item legend-priority">🔥 專長未達標</span>
+          <span class="legend-item legend-skill">🌟 我的專長</span>
+          <span class="legend-item legend-blocked">⛔ 勞基法阻擋</span>
+          <span class="legend-item legend-full">額滿／無資格</span>
+        </span>
+      </div>
+    </section>
+
+    <!-- 🔒 勞基法接班防呆規範（可展開說明） -->
+    <details class="rules-legend card-glass">
+      <summary>
+        <ShieldAlert :size="16" />
+        <strong>勞基法接班防呆（系統自動阻擋）</strong>
+        <span class="rule-chip">① 日/晚/小夜 ➜ 隔天禁大夜 N</span>
+        <span class="rule-chip">② MRI 晚班 e(m) ➜ 隔天禁 08:00 日班</span>
+        <span class="rule-chip">③ 小夜 E ➜ 隔天禁日/晚/大夜</span>
+        <span class="rule-chip">休息須滿 11 小時</span>
+        <span class="rules-toggle-hint">點擊展開完整說明</span>
+      </summary>
+      <div class="rules-detail">
         <div>• <strong>規範一 (禁接大夜)</strong>：全日間/晚班/小夜班 (D, E, d(US), d1, T, C9, d(m), e(m), C8, C2(m), C2, M) ➜ 隔天 100% 禁接大夜班 N。</div>
         <div>• <strong>規範二 (MRI晚班限制)</strong>：MRI 晚班 e(m) (21:30 下班) ➜ 隔天 100% 禁接 08:00 日班 (D, d(US), d1, T, d(m))，休息僅 10.5h 未滿 11h。</div>
         <div>• <strong>規範三 (小夜班限制)</strong>：一般小夜班 E (00:30 下班) ➜ 隔天 100% 禁接所有日班/晚班/大夜班 (D, N, d(US), d1, T, C9, d(m), e(m), C8, C2(m), C2, M)，休息僅 7.5h 未滿 11h。</div>
+        <div>• 其他班別組合只要兩班間隔未滿 11 小時，同樣會被阻擋；日曆與選班明細會直接標示阻擋原因。</div>
       </div>
-    </div>
+    </details>
 
     <!-- 管理者控制欄 (已依照指令刪除快捷按鈕與智慧填補按鈕) -->
     <div class="admin-toolbar card-glass">
@@ -120,93 +156,101 @@
       </div>
     </div>
 
-    <!-- 🙋‍♂️ 方案一：同仁自主選班單日詳細抽屜 (Bidding Detail Drawer Modal) -->
+    <!-- 選班結果即時提示 (不打斷操作) -->
+    <div class="bid-toast" :class="'toast-' + toast.type" v-if="toast.show">{{ toast.msg }}</div>
+
+    <!-- 🙋‍♂️ 同仁自主選班單日詳細抽屜 (Bidding Detail Drawer Modal) -->
     <div class="modal-overlay" v-if="biddingDrawerModal.show" @click.self="biddingDrawerModal.show = false" style="z-index: 10000;">
       <div class="modal-content card-glass modal-bidding-drawer">
         <div class="drawer-header">
           <h3>🙋‍♂️ 同仁自主選班 - {{ biddingDrawerModal.dateStr }} ({{ getDayOfWeekText(biddingDrawerModal.dateStr) }})</h3>
-          <span class="drawer-subtitle">為同仁【{{ currentStaff?.name }}】點擊即可快速勾選或退選班別：</span>
+          <span class="drawer-subtitle">為同仁【{{ currentStaff?.name }}】點擊即可快速勾選或退選班別（已依對你的重要性排序，並預先標示不能選的原因）：</span>
+        </div>
+
+        <!-- 今日狀態 -->
+        <div class="drawer-myday is-picked" v-if="myDayMap[biddingDrawerModal.dateStr]?.slot">
+          ✅ 你今天已選：<strong>{{ getShiftName(myDayMap[biddingDrawerModal.dateStr].slot.shiftCode) }}</strong>
+          （{{ getShiftTime(myDayMap[biddingDrawerModal.dateStr].slot.shiftCode) }}）　若要改選，請先點擊該班退選。
+        </div>
+        <div class="drawer-myday is-leave" v-else-if="myDayMap[biddingDrawerModal.dateStr]?.leave">
+          🏖️ 你今天有請假紀錄，當日無法選班。
         </div>
 
         <!-- 🎯 抽屜頂部：第二專長目標天數進度 -->
-        <div class="specialty-progress-panel" v-if="activeRosterRole === '放射師' && specialtyProgress.length">
-          <div class="specialty-progress-title">🎯 【{{ currentStaff?.name }}】本月第二專長目標天數進度</div>
-          <div
+        <div class="drawer-progress" v-if="activeRosterRole === '放射師' && specialtyProgress.length">
+          <span
             v-for="item in specialtyProgress"
             :key="item.key"
-            class="specialty-progress-item"
-            :class="item.target > 0 ? (item.isMet ? 'is-met' : 'is-short') : 'is-info'"
-          >
-            <template v-if="item.target > 0 && !item.isMet">⚠️ 【{{ item.name }}】本月基本應上滿 {{ item.target }} 天，目前已選 {{ item.count }} 天（尚差 {{ item.remain }} 天未上滿，請優先選填！）</template>
-            <template v-else-if="item.target > 0">✅ 【{{ item.name }}】已上滿達標（已選 {{ item.count }} / {{ item.target }} 天）</template>
-            <template v-else>ℹ️ 具備【{{ item.name }}】第二專長（本月未設最低天數門檻，已選 {{ item.count }} 天）</template>
-          </div>
+            class="progress-chip"
+            :class="getProgressClass(item)"
+          >{{ item.name }}：{{ getProgressText(item) }}</span>
         </div>
+        <div
+          v-for="item in unmetSpecialties"
+          :key="'drawer_unmet_' + item.key"
+          class="specialty-progress-item is-short"
+          style="margin-bottom: 6px;"
+        >⚠️ 【{{ item.name }}】本月基本應上滿 {{ item.target }} 天，目前已選 {{ item.count }} 天（尚差 {{ item.remain }} 天未上滿，請優先選填！）</div>
 
         <!-- 抽屜內部即時警告 Banner -->
-        <div v-if="drawerErrorMsg" class="drawer-error-banner" style="background: #fef2f2; border: 2px solid #f87171; color: #991b1b; padding: 10px 14px; border-radius: 8px; font-weight: 700; margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between;">
+        <div v-if="drawerErrorMsg" class="drawer-error-banner" style="background: #fef2f2; border: 2px solid #f87171; color: #991b1b; padding: 10px 14px; border-radius: 8px; font-weight: 700; margin: 10px 0 14px; display: flex; align-items: center; justify-content: space-between; gap: 8px;">
           <span>{{ drawerErrorMsg }}</span>
           <button @click="drawerErrorMsg = ''" style="background: none; border: none; font-size: 1.2rem; cursor: pointer; color: #991b1b;">×</button>
         </div>
 
-        <div class="drawer-slots-grid">
-          <div 
-            v-for="slot in biddingDrawerModal.slots" 
-            :key="slot.id"
-            class="drawer-slot-card"
-            :class="getSlotCardClass(slot)"
-            @click="toggleSlotBidding(slot, biddingDrawerModal.dateStr)"
-          >
-            <div class="drawer-slot-top">
-              <span class="shift-name-lg" :style="{ backgroundColor: getShiftColor(slot.shiftCode) }">
-                {{ getShiftName(slot.shiftCode) }}
-              </span>
-              <span class="slot-count-lg">
-                需求 {{ slot.capacity }} 人 (已選 {{ slot.assignedStaffIds.length }}/{{ slot.capacity }})
-              </span>
-            </div>
-
-            <div class="drawer-slot-details">
-              <div class="detail-item" v-if="getShiftTime(slot.shiftCode)">
-                <Clock :size="14" /> <span>出勤時間：{{ getShiftTime(slot.shiftCode) }}</span>
-              </div>
-              <div class="detail-item" v-if="slot.requiredSkill">
-                <ShieldAlert :size="14" /> <span>門檻要求：{{ getSkillName(slot.requiredSkill) }}</span>
-                <span v-if="hasSecondarySkill(currentStaff, slot.requiredSkill)" style="margin-left: 6px;">
-                  <template v-if="getSkillTargetStatus(selectedStaffId, slot.requiredSkill)">
-                    <span v-if="!getSkillTargetStatus(selectedStaffId, slot.requiredSkill).isMet" style="background: #fff7ed; color: #c2410c; font-weight: 800; padding: 2px 6px; border-radius: 4px; font-size: 11px; border: 1px solid #ffedd5;">
-                      🔥 當月目標專長 (已選 {{ getSkillTargetStatus(selectedStaffId, slot.requiredSkill).count }}/{{ getSkillTargetStatus(selectedStaffId, slot.requiredSkill).target }}天，尚缺 {{ getSkillTargetStatus(selectedStaffId, slot.requiredSkill).remain }} 天請優先預選)
-                    </span>
-                    <span v-else style="background: #f0fdf4; color: #15803d; font-weight: 800; padding: 2px 6px; border-radius: 4px; font-size: 11px; border: 1px solid #bbf7d0;">
-                      ✅ 專長天數已達標 ({{ getSkillTargetStatus(selectedStaffId, slot.requiredSkill).count }}/{{ getSkillTargetStatus(selectedStaffId, slot.requiredSkill).target }}天)
-                    </span>
-                  </template>
-                  <template v-else>
-                    <span style="background: #dcfce7; color: #15803d; font-weight: 700; padding: 2px 6px; border-radius: 4px; font-size: 11px; border: 1px solid #86efac;">
-                      🌟 您的第二專長 (優先推薦預選)
-                    </span>
-                  </template>
+        <div class="drawer-group" v-for="group in drawerSlotGroups" :key="group.key">
+          <div class="drawer-group-title" :class="'group-' + group.key">{{ group.label }}（{{ group.slots.length }}）</div>
+          <div class="drawer-slots-grid">
+            <div 
+              v-for="slot in group.slots" 
+              :key="slot.id"
+              class="drawer-slot-card"
+              :class="[getSlotCardClass(slot), 'status-' + (slotStatusMap[slot.id]?.kind || 'available')]"
+              @click="toggleSlotBidding(slot, biddingDrawerModal.dateStr)"
+            >
+              <div class="drawer-slot-top">
+                <span class="shift-name-lg" :style="{ backgroundColor: getShiftColor(slot.shiftCode) }">
+                  {{ getShiftName(slot.shiftCode) }}
+                </span>
+                <span class="slot-count-lg">
+                  需求 {{ slot.capacity }} 人 (已選 {{ slot.assignedStaffIds.length }}/{{ slot.capacity }})
                 </span>
               </div>
-            </div>
 
+              <!-- 預先驗證結果：可選原因或阻擋原因 -->
+              <div
+                class="status-reason"
+                :class="'reason-' + slotStatusMap[slot.id].kind"
+                v-if="slotStatusMap[slot.id]?.label"
+                :title="slotStatusMap[slot.id].error || ''"
+              >{{ slotStatusMap[slot.id].label }}</div>
 
-            <!-- 已選人員名單 -->
-            <div class="assigned-names-lg">
-              <span 
-                v-for="stId in slot.assignedStaffIds" 
-                :key="stId"
-                class="name-pill-lg"
-                :class="{ 'is-me': stId === selectedStaffId }"
-              >
-                {{ getStaffName(stId) }}
-              </span>
-            </div>
+              <div class="drawer-slot-details">
+                <div class="detail-item" v-if="getShiftTime(slot.shiftCode)">
+                  <Clock :size="14" /> <span>出勤時間：{{ getShiftTime(slot.shiftCode) }}</span>
+                </div>
+                <div class="detail-item" v-if="getSlotSkill(slot)">
+                  <ShieldAlert :size="14" /> <span>門檻要求：{{ getSkillName(getSlotSkill(slot)) }}</span>
+                </div>
+              </div>
 
-            <div class="action-hint-lg">
-              <span v-if="slot.assignedStaffIds.includes(selectedStaffId)" class="hint-btn me-btn">✅ 已選取 (點擊退選)</span>
-              <span v-else-if="slot.assignedStaffIds.length >= slot.capacity" class="hint-btn full-btn">已額滿</span>
-              <span v-else class="hint-btn pick-btn">+ 點擊選班</span>
+              <!-- 已選人員名單 -->
+              <div class="assigned-names-lg">
+                <span 
+                  v-for="stId in slot.assignedStaffIds" 
+                  :key="stId"
+                  class="name-pill-lg"
+                  :class="{ 'is-me': stId === selectedStaffId }"
+                >
+                  {{ getStaffName(stId) }}
+                </span>
+              </div>
+
+              <div class="action-hint-lg">
+                <span v-if="slot.assignedStaffIds.includes(selectedStaffId)" class="hint-btn me-btn">✅ 已選取 (點擊退選)</span>
+                <span v-else-if="slotStatusMap[slot.id]?.group >= 4" class="hint-btn full-btn">無法選擇（點擊看完整原因）</span>
+                <span v-else class="hint-btn pick-btn">+ 點擊選班</span>
+              </div>
             </div>
           </div>
         </div>
@@ -308,25 +352,38 @@
             </button>
           </div>
 
-          <!-- ===== 🙋‍♂️ 方案一：同仁自主選班模式下的【極簡膠囊視圖】 ===== -->
+          <!-- ===== 🙋‍♂️ 同仁自主選班模式：今日狀態置頂 + 依重要性排序的膠囊 ===== -->
           <div class="pills-bidding-view" v-if="currentMode === 'bidding'">
+            <div
+              class="my-day-badge is-picked"
+              v-if="myDayMap[dateStr]?.slot"
+              :style="{ borderLeftColor: getShiftColor(myDayMap[dateStr].slot.shiftCode) }"
+              :title="getShiftName(myDayMap[dateStr].slot.shiftCode) + '（' + getShiftTime(myDayMap[dateStr].slot.shiftCode) + '）'"
+            >
+              <span class="my-day-label">✅ 今日已選</span>
+              <span class="my-day-shift">{{ getShiftName(myDayMap[dateStr].slot.shiftCode) }}</span>
+              <span class="my-day-time">{{ getShiftTime(myDayMap[dateStr].slot.shiftCode) }}</span>
+            </div>
+            <div class="my-day-badge is-leave" v-else-if="myDayMap[dateStr]?.leave">
+              <span class="my-day-label">🏖️ 當日請假</span>
+            </div>
+
             <div class="pills-flex-container">
               <div 
-                v-for="slot in getFilteredSlotsByRole(daySlots)" 
+                v-for="slot in getCellSlots(daySlots)" 
                 :key="slot.id"
                 class="pill-badge"
                 :style="{ borderLeftColor: getShiftColor(slot.shiftCode) }"
-                :class="{ 
-                  'is-me-pill': slot.assignedStaffIds.includes(selectedStaffId),
-                  'is-full-pill': slot.assignedStaffIds.length >= slot.capacity && !slot.assignedStaffIds.includes(selectedStaffId)
-                }"
+                :class="getPillClass(slot)"
                 @click.stop="handleSlotClick(slot, dateStr)"
-                :title="getShiftName(slot.shiftCode) + ' (點擊選班)'"
+                :title="getPillTitle(slot)"
               >
+                <span class="pill-mark" v-if="getPillMark(slot)">{{ getPillMark(slot) }}</span>
                 <span class="pill-code">{{ slot.shiftCode }}</span>
                 <span class="pill-ratio">{{ slot.assignedStaffIds.length }}/{{ slot.capacity }}</span>
                 <span class="me-dot" v-if="slot.assignedStaffIds.includes(selectedStaffId)">✓</span>
               </div>
+              <span class="pill-empty" v-if="!getCellSlots(daySlots).length">無符合篩選的班別</span>
             </div>
 
             <div class="expand-drawer-hint">
@@ -412,7 +469,9 @@ import {
   generateDefaultSlots,
   addSlotToDate,
   removeSlotFromDate,
-  updateSlotInDate 
+  updateSlotInDate,
+  getPrevDateStr,
+  getNextDateStr
 } from '../core/biddingEngine.js'
 
 const props = defineProps({
@@ -459,6 +518,29 @@ watch(activeRosterRole, (newRole) => {
 const errorModal = ref({ show: false, msg: '' })
 const drawerErrorMsg = ref('')
 
+// 選班結果即時提示（取代瀏覽器原生 alert，不打斷操作）
+const toast = ref({ show: false, msg: '', type: 'success' })
+let toastTimer = null
+function showToast(msg, type = 'success') {
+  toast.value = { show: true, msg, type }
+  clearTimeout(toastTimer)
+  toastTimer = setTimeout(() => { toast.value.show = false }, 3200)
+}
+
+// 日曆班別篩選
+const bidFilter = ref('all')
+const bidFilterOptions = [
+  { key: 'all', label: '📋 顯示全部班別' },
+  { key: 'skill', label: '🌟 優先顯示我的第二專長班', radiographerOnly: true },
+  { key: 'available', label: '✅ 只顯示我可選的班別' }
+]
+const visibleFilterOptions = computed(() => {
+  return bidFilterOptions.filter(f => !f.radiographerOnly || activeRosterRole.value === '放射師')
+})
+watch(activeRosterRole, (role) => {
+  if (role !== '放射師' && bidFilter.value === 'skill') bidFilter.value = 'all'
+})
+
 // 🙋‍♂️ 方案一：同仁自主選班單日詳細抽屜 Modal
 const biddingDrawerModal = ref({
   show: false,
@@ -499,6 +581,9 @@ const currentStaff = computed(() => {
   return props.staffList.find(s => s.id === selectedStaffId.value)
 })
 
+// 班別定義：主管自訂設定優先，內建定義補齊
+const mergedDefs = computed(() => ({ ...SHIFT_DEFS, ...(props.shiftDefs || {}) }))
+
 const firstDayOffset = computed(() => {
   const dateStr = `${props.year}-${String(props.month).padStart(2, '0')}-01`
   return new Date(dateStr).getDay()
@@ -509,32 +594,55 @@ function getFilteredSlotsByRole(daySlots) {
   if (!daySlots) return []
   return daySlots.filter(slot => {
     if (slot.shiftCode === 'V' || slot.shiftCode === '公') return true 
-    const targetRole = SHIFT_DEFS[slot.shiftCode]?.targetRole
+    const targetRole = mergedDefs.value[slot.shiftCode]?.targetRole
     if (!targetRole) return true
     return targetRole === activeRosterRole.value
   })
 }
 
+// 依班別時段估算工時（OnCall 待命與假別不計）
+function getShiftHours(shiftCode) {
+  if (shiftCode === 'CALL' || shiftCode === 'CALL_NURSE') return 0
+  const m = /(\d{1,2}):(\d{2})\s*-\s*(\d{1,2}):(\d{2})/.exec(mergedDefs.value[shiftCode]?.time || '')
+  if (!m) return 0
+  const start = Number(m[1]) + Number(m[2]) / 60
+  let end = Number(m[3]) + Number(m[4]) / 60
+  if (end <= start) end += 24
+  return end - start
+}
+
 const myStats = computed(() => {
-  if (!currentStaff.value) return { totalDays: 0, totalHours: 0, nightCount: 0, satCount: 0 }
+  if (!currentStaff.value) return { totalDays: 0, totalHours: 0, nightCount: 0, weekendCount: 0 }
 
   let days = 0
   let hours = 0
   let nights = 0
-  let sats = 0
+  let weekends = 0
 
-  Object.values(props.slotsByDate).forEach(daySlots => {
-    daySlots.forEach(slot => {
+  Object.entries(props.slotsByDate || {}).forEach(([dateStr, daySlots]) => {
+    (daySlots || []).forEach(slot => {
       if (slot.assignedStaffIds.includes(selectedStaffId.value)) {
         days++
-        hours += (SHIFT_DEFS[slot.shiftCode]?.time === '08:00–12:30' ? 4.5 : 8)
-        if (slot.shiftCode === 'E' || slot.shiftCode === 'N') nights++
-        if (slot.shiftCode === 'SAT_D') sats++
+        hours += getShiftHours(slot.shiftCode)
+        if (['e', 'n'].includes(String(slot.shiftCode).toLowerCase())) nights++
+        if (isWeekend(dateStr)) weekends++
       }
     })
   })
 
-  return { totalDays: days, totalHours: hours, nightCount: nights, satCount: sats }
+  return { totalDays: days, totalHours: Math.round(hours * 10) / 10, nightCount: nights, weekendCount: weekends }
+})
+
+// 同仁每天的狀態：已選班別 / 請假
+const myDayMap = computed(() => {
+  const map = {}
+  const staffId = selectedStaffId.value
+  Object.entries(props.slotsByDate || {}).forEach(([dateStr, daySlots]) => {
+    const slot = (daySlots || []).find(s => Array.isArray(s.assignedStaffIds) && s.assignedStaffIds.includes(staffId))
+    const leave = (props.leaves || []).some(l => l.staffId === staffId && (l.date === dateStr || l.start === dateStr) && ['full', 'am', 'pm'].includes(l.type))
+    map[dateStr] = { slot: slot || null, leave }
+  })
+  return map
 })
 
 function getStaffSkillsBadge(s) {
@@ -570,17 +678,17 @@ function getDayOfWeekText(dateStr) {
 }
 
 function getShiftName(shiftCode) {
-  const def = SHIFT_DEFS[shiftCode]
+  const def = mergedDefs.value[shiftCode]
   if (!def) return shiftCode
   return `${shiftCode} (${def.name})`
 }
 
 function getShiftTime(shiftCode) {
-  return SHIFT_DEFS[shiftCode]?.time || ''
+  return mergedDefs.value[shiftCode]?.time || ''
 }
 
 function getShiftColor(shiftCode) {
-  return SHIFT_DEFS[shiftCode]?.color || '#64748b'
+  return mergedDefs.value[shiftCode]?.color || '#64748b'
 }
 
 function getSkillName(sk) {
@@ -660,6 +768,160 @@ function getSkillTargetStatus(staffId, skillKey) {
   }
 }
 
+const unmetSpecialties = computed(() => specialtyProgress.value.filter(item => item.target > 0 && !item.isMet))
+
+function getProgressClass(item) {
+  if (item.target <= 0) return 'is-info'
+  return item.isMet ? 'is-met' : 'is-short'
+}
+
+function getProgressPercent(item) {
+  if (item.target <= 0) return 0
+  return Math.min(100, Math.round((item.count / item.target) * 100))
+}
+
+function getProgressText(item) {
+  if (item.target <= 0) return `已選 ${item.count} 天（未設門檻）`
+  if (item.isMet) return `✅ 已達標 ${item.count} / ${item.target} 天`
+  return `已選 ${item.count} / ${item.target} 天・尚差 ${item.remain} 天`
+}
+
+// 班別的專長門檻：格子自訂門檻優先，否則用班別對應專長
+function getSlotSkill(slot) {
+  return slot.requiredSkill || mergedDefs.value[slot.shiftCode]?.modKey || null
+}
+
+// ===== 勞基法與資格事前預檢（用 validateBidding 判斷，只用於顯示，不放寬任何規則） =====
+function buildBlockStatus(error, dateStr) {
+  const msg = String(error || '')
+  if (/違法|勞基法|休息/.test(msg)) {
+    const isPrev = msg.includes('前一日')
+    const refDate = isPrev ? getPrevDateStr(dateStr) : getNextDateStr(dateStr)
+    const refCode = myDayMap.value[refDate]?.slot?.shiftCode
+    const gap = (/僅\s*([\d.]+)\s*小時/.exec(msg) || [])[1]
+    const where = isPrev ? `前日${refCode ? ' ' + refCode + ' 班' : '出勤'}` : `隔日已排${refCode ? ' ' + refCode + ' 班' : '班別'}`
+    return { kind: 'law', group: 4, label: `⛔ 勞基法阻擋：${where}${gap ? '，休息僅 ' + gap + 'h' : ''}（未滿 11h）` }
+  }
+  if (msg.includes('請假')) return { kind: 'leave', group: 4, label: '🏖️ 當日有請假紀錄' }
+  if (msg.includes('同一天不可重複')) return { kind: 'day-taken', group: 4, label: '📌 今日已選其他班（一天一班）' }
+  if (msg.includes('名額已滿')) return { kind: 'full', group: 5, label: '⚪ 名額已滿' }
+  if (msg.includes('職類不符')) return { kind: 'no-skill', group: 5, label: '⚪ 非本職類班別' }
+  if (msg.includes('夜班')) return { kind: 'no-skill', group: 5, label: '⚪ 未開放上夜班' }
+  if (msg.includes('缺')) return { kind: 'no-skill', group: 5, label: `⚪ 無資格：${msg.replace(/^缺\s*/, '缺 ')}` }
+  return { kind: 'blocked', group: 4, label: `⛔ ${msg}` }
+}
+
+function evaluateSlot(staff, slot, dateStr) {
+  const skill = getSlotSkill(slot)
+  const isSecondary = hasSecondarySkill(staff, skill)
+  if (slot.assignedStaffIds.includes(staff.id)) {
+    return { kind: 'mine', group: 0, label: '✅ 本人已選', isSecondary }
+  }
+  const val = validateBidding({
+    staff,
+    slot,
+    dateStr,
+    slotsByDate: props.slotsByDate,
+    staffList: props.staffList,
+    leaves: props.leaves,
+    constraints: props.constraints,
+    customShiftDefs: props.shiftDefs
+  })
+  if (!val.valid) return { ...buildBlockStatus(val.error, dateStr), isSecondary, error: val.error }
+  const target = isSecondary ? getSkillTargetStatus(staff.id, skill) : null
+  if (target && !target.isMet) {
+    return { kind: 'priority', group: 1, label: `🔥 ${getSkillName(skill)} 未達標：已選 ${target.count}/${target.target} 天，尚差 ${target.remain} 天`, isSecondary }
+  }
+  if (isSecondary) return { kind: 'skill', group: 2, label: `🌟 我的第二專長班（${getSkillName(skill)}）`, isSecondary }
+  return { kind: 'available', group: 3, label: '', isSecondary }
+}
+
+// 目前同仁對每個班別格子的狀態（slot.id → 狀態）
+const slotStatusMap = computed(() => {
+  const map = {}
+  const staff = currentStaff.value
+  if (!staff || currentMode.value !== 'bidding') return map
+  Object.entries(props.slotsByDate || {}).forEach(([dateStr, daySlots]) => {
+    getFilteredSlotsByRole(daySlots).forEach(slot => {
+      map[slot.id] = evaluateSlot(staff, slot, dateStr)
+    })
+  })
+  return map
+})
+
+function getSlotGroup(slot) {
+  return slotStatusMap.value[slot.id]?.group ?? 3
+}
+
+function sortSlotsForMe(list) {
+  return list
+    .map((slot, idx) => ({ slot, idx }))
+    .sort((a, b) => getSlotGroup(a.slot) - getSlotGroup(b.slot) || a.idx - b.idx)
+    .map(x => x.slot)
+}
+
+// 日曆格子要顯示的膠囊：依職類 → 篩選器 → 重要性排序
+function getCellSlots(daySlots) {
+  let list = getFilteredSlotsByRole(daySlots)
+  if (bidFilter.value === 'skill') {
+    list = list.filter(slot => {
+      const st = slotStatusMap.value[slot.id]
+      return st && (st.kind === 'mine' || st.isSecondary)
+    })
+  } else if (bidFilter.value === 'available') {
+    list = list.filter(slot => getSlotGroup(slot) <= 3)
+  }
+  return sortSlotsForMe(list)
+}
+
+function getPillClass(slot) {
+  const st = slotStatusMap.value[slot.id]
+  const kind = st?.kind
+  return {
+    'is-me-pill': kind === 'mine',
+    'is-priority-pill': kind === 'priority',
+    'is-skill-pill': kind === 'skill',
+    'is-blocked-pill': st?.group === 4,
+    'is-full-pill': st?.group === 5
+  }
+}
+
+function getPillMark(slot) {
+  const kind = slotStatusMap.value[slot.id]?.kind
+  if (kind === 'priority') return '🔥'
+  if (kind === 'skill') return '🌟'
+  if (kind === 'law') return '⛔'
+  return ''
+}
+
+function getPillTitle(slot) {
+  const st = slotStatusMap.value[slot.id]
+  const lines = [`${getShiftName(slot.shiftCode)}｜${getShiftTime(slot.shiftCode)}`]
+  if (st?.label) lines.push(st.label)
+  if (st?.error && st.error !== st.label) lines.push(st.error)
+  lines.push(st?.kind === 'mine' ? '點擊退選' : (st?.group >= 4 ? '無法選擇' : '點擊選班'))
+  return lines.join('\n')
+}
+
+// 單日抽屜：依重要性分組
+const DRAWER_GROUPS = [
+  { key: 'mine', group: 0, label: '✅ 本人已選' },
+  { key: 'priority', group: 1, label: '🔥 第二專長未達標・優先推薦' },
+  { key: 'skill', group: 2, label: '🌟 我的第二專長班' },
+  { key: 'available', group: 3, label: '🟢 一般可選班別' },
+  { key: 'blocked', group: 4, label: '⛔ 勞基法/接班規範衝突・當日已選或請假' },
+  { key: 'unavailable', group: 5, label: '⚪ 已額滿 / 無該專長資格' }
+]
+
+const drawerSlotGroups = computed(() => {
+  const dateStr = biddingDrawerModal.value.dateStr
+  if (!dateStr) return []
+  const slots = getFilteredSlotsByRole(props.slotsByDate?.[dateStr] || [])
+  return DRAWER_GROUPS
+    .map(g => ({ ...g, slots: slots.filter(slot => getSlotGroup(slot) === g.group) }))
+    .filter(g => g.slots.length > 0)
+})
+
 function getStaffName(stId) {
 
 
@@ -685,6 +947,7 @@ function getSlotCardClass(slot) {
 function handleDayCellClick(dateStr, daySlots) {
   if (currentMode.value === 'bidding') {
     const filtered = getFilteredSlotsByRole(daySlots)
+    drawerErrorMsg.value = ''
     biddingDrawerModal.value = {
       show: true,
       dateStr,
@@ -712,19 +975,19 @@ function handleSlotClick(slot, dateStr) {
 }
 
 function toggleSlotBidding(slot, dateStr) {
-  if (!currentStaff.value) return
+  const staff = currentStaff.value
+  if (!staff) return
 
-  const isMe = slot.assignedStaffIds.includes(selectedStaffId.value)
+  // 一律以最新的 slotsByDate 為準，避免抽屜內殘留舊資料
+  const current = (props.slotsByDate?.[dateStr] || []).find(s => s.id === slot.id) || slot
+  const isMe = current.assignedStaffIds.includes(staff.id)
+  drawerErrorMsg.value = ''
+  let warningMsg = ''
 
-  if (isMe) {
-    drawerErrorMsg.value = ''
-    slot.assignedStaffIds = slot.assignedStaffIds.filter(id => id !== selectedStaffId.value)
-    emit('update:slotsByDate', JSON.parse(JSON.stringify(props.slotsByDate)))
-  } else {
-    drawerErrorMsg.value = ''
+  if (!isMe) {
     const val = validateBidding({
-      staff: currentStaff.value,
-      slot,
+      staff,
+      slot: current,
       dateStr,
       slotsByDate: props.slotsByDate,
       staffList: props.staffList,
@@ -734,18 +997,34 @@ function toggleSlotBidding(slot, dateStr) {
     })
 
     if (!val.valid) {
-      drawerErrorMsg.value = val.error
-      errorModal.value = { show: true, msg: val.error }
-      alert(val.error)
+      // 抽屜開著時用內嵌橫幅，否則用警示視窗（不再重複跳原生 alert）
+      if (biddingDrawerModal.value.show) {
+        drawerErrorMsg.value = val.error
+      } else {
+        errorModal.value = { show: true, msg: val.error }
+      }
       return
     }
 
     if (val.warnings && val.warnings.length > 0) {
-      alert(val.warnings.join('\n'))
+      warningMsg = val.warnings.join('；')
     }
+  }
 
-    slot.assignedStaffIds.push(selectedStaffId.value)
-    emit('update:slotsByDate', JSON.parse(JSON.stringify(props.slotsByDate)))
+  const updated = JSON.parse(JSON.stringify(props.slotsByDate))
+  const target = (updated[dateStr] || []).find(s => s.id === slot.id)
+  if (!target) return
+  target.assignedStaffIds = isMe
+    ? target.assignedStaffIds.filter(id => id !== staff.id)
+    : [...target.assignedStaffIds, staff.id]
+  emit('update:slotsByDate', updated)
+
+  if (isMe) {
+    showToast(`↩️ 已退選 ${dateStr} ${getShiftName(slot.shiftCode)}`, 'info')
+  } else if (warningMsg) {
+    showToast(`✅ 已選取 ${dateStr} ${getShiftName(slot.shiftCode)}（${warningMsg}）`, 'warning')
+  } else {
+    showToast(`✅ 已選取 ${dateStr} ${getShiftName(slot.shiftCode)}`, 'success')
   }
 }
 
@@ -1091,8 +1370,8 @@ function handleApplyToRoster() {
 }
 
 .calendar-day-cell.compact-bidding-cell {
-  min-height: 165px;
-  height: 165px;
+  min-height: 190px;
+  height: 190px;
   overflow: hidden;
 }
 
@@ -1521,5 +1800,399 @@ function handleApplyToRoster() {
   justify-content: flex-end;
   gap: 10px;
   margin-top: 10px;
+}
+/* ===== 🧑‍⚕️ 個人選班工作台 ===== */
+.workbench {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px 20px;
+  background: rgba(255, 255, 255, 0.92);
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+}
+
+.wb-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.wb-staff {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.wb-label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.wb-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(84px, 1fr));
+  gap: 8px;
+}
+
+.wb-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: #f0fdfa;
+  border: 1px solid #99f6e4;
+}
+
+.wb-stat-val {
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: #0d5c53;
+  line-height: 1.2;
+}
+
+.wb-stat-label {
+  font-size: 0.75rem;
+  color: #475569;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.wb-section-title {
+  font-weight: 800;
+  font-size: 0.88rem;
+  color: #0d5c53;
+}
+
+.wb-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.progress-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 6px 18px;
+}
+
+.progress-row {
+  display: grid;
+  grid-template-columns: 76px 1fr auto;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.82rem;
+}
+
+.progress-name {
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.progress-track {
+  height: 10px;
+  border-radius: 999px;
+  background: #e2e8f0;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: #f97316;
+  transition: width 0.3s ease;
+}
+
+.progress-row.is-met .progress-fill { background: #16a34a; }
+.progress-row.is-info .progress-track { background: #e0f2fe; }
+
+.progress-text {
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.progress-row.is-short .progress-text { color: #c2410c; }
+.progress-row.is-met .progress-text { color: #15803d; }
+.progress-row.is-info .progress-text { color: #0369a1; }
+
+.wb-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding-top: 10px;
+  border-top: 1px dashed #e2e8f0;
+}
+
+.filter-chip {
+  border: 1px solid #cbd5e1;
+  background: white;
+  color: #334155;
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.filter-chip:hover { background: #f1f5f9; }
+
+.filter-chip.active {
+  background: #0d5c53;
+  border-color: #0d5c53;
+  color: white;
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.legend-item {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 4px;
+  border-left: 3px solid transparent;
+}
+
+.legend-me { background: #10b981; color: white; }
+.legend-priority { background: #fff7ed; color: #c2410c; border-left-color: #f97316; }
+.legend-skill { background: #fefce8; color: #a16207; border-left-color: #eab308; }
+.legend-blocked { background: #fef2f2; color: #b91c1c; border-left-color: #ef4444; }
+.legend-full { background: #e2e8f0; color: #64748b; }
+
+/* ===== 🔒 勞基法規範（可展開） ===== */
+.rules-legend {
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  border-radius: 8px;
+  padding: 8px 14px;
+}
+
+.rules-legend summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  color: #c2410c;
+  font-size: 0.85rem;
+  list-style: none;
+}
+
+.rules-legend summary::-webkit-details-marker { display: none; }
+
+.rule-chip {
+  background: white;
+  border: 1px solid #fdba74;
+  color: #9a3412;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
+.rules-toggle-hint {
+  margin-left: auto;
+  font-size: 0.75rem;
+  color: #ea580c;
+  font-weight: 600;
+}
+
+.rules-legend[open] .rules-toggle-hint { visibility: hidden; }
+
+.rules-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 8px;
+  font-size: 0.82rem;
+  color: #9a3412;
+}
+
+/* ===== 日曆格子：今日狀態與膠囊狀態 ===== */
+.my-day-badge {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 4px 6px;
+  border-radius: 6px;
+  border-left: 4px solid #10b981;
+  margin-bottom: 4px;
+}
+
+.my-day-badge.is-picked {
+  background: #ecfdf5;
+  border-top: 1px solid #a7f3d0;
+  border-right: 1px solid #a7f3d0;
+  border-bottom: 1px solid #a7f3d0;
+}
+
+.my-day-badge.is-leave {
+  background: #eff6ff;
+  border-left-color: #3b82f6;
+}
+
+.my-day-label {
+  font-size: 10px;
+  font-weight: 800;
+  color: #047857;
+}
+
+.my-day-badge.is-leave .my-day-label { color: #1d4ed8; }
+
+.my-day-shift {
+  font-size: 11px;
+  font-weight: 800;
+  color: #0f172a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.my-day-time {
+  font-size: 10px;
+  color: #475569;
+}
+
+.pill-badge.is-priority-pill {
+  background: #fff7ed;
+  color: #c2410c;
+  box-shadow: inset 0 0 0 1px #fb923c;
+}
+
+.pill-badge.is-skill-pill {
+  background: #fefce8;
+  color: #a16207;
+  box-shadow: inset 0 0 0 1px #facc15;
+}
+
+.pill-badge.is-blocked-pill {
+  background: #fef2f2;
+  color: #b91c1c;
+  opacity: 0.75;
+  text-decoration: line-through;
+  text-decoration-color: rgba(185, 28, 28, 0.5);
+}
+
+.pill-mark {
+  font-size: 10px;
+}
+
+.pill-empty {
+  font-size: 10px;
+  color: #94a3b8;
+}
+
+/* ===== 抽屜：今日狀態、進度與分組 ===== */
+.drawer-myday {
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+
+.drawer-myday.is-picked { background: #ecfdf5; color: #065f46; border: 1px solid #a7f3d0; }
+.drawer-myday.is-leave { background: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; }
+
+.drawer-progress {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.progress-chip {
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+}
+
+.progress-chip.is-short { background: #fff7ed; color: #c2410c; border-color: #fdba74; }
+.progress-chip.is-met { background: #f0fdf4; color: #15803d; border-color: #86efac; }
+.progress-chip.is-info { background: #f0f9ff; color: #0369a1; border-color: #bae6fd; }
+
+.drawer-group {
+  margin-top: 12px;
+}
+
+.drawer-group-title {
+  font-size: 0.85rem;
+  font-weight: 800;
+  margin-bottom: 6px;
+  color: #334155;
+}
+
+.drawer-group-title.group-mine { color: #047857; }
+.drawer-group-title.group-priority { color: #c2410c; }
+.drawer-group-title.group-skill { color: #a16207; }
+.drawer-group-title.group-available { color: #0d5c53; }
+.drawer-group-title.group-blocked { color: #b91c1c; }
+.drawer-group-title.group-unavailable { color: #64748b; }
+
+.drawer-slot-card.status-priority { border: 2px solid #fb923c; background: #fffbf5; }
+.drawer-slot-card.status-skill { border: 2px solid #facc15; background: #fffef5; }
+.drawer-slot-card.status-law,
+.drawer-slot-card.status-leave,
+.drawer-slot-card.status-day-taken,
+.drawer-slot-card.status-blocked { background: #fef2f2; border-color: #fecaca; opacity: 0.85; }
+.drawer-slot-card.status-full,
+.drawer-slot-card.status-no-skill { background: #f8fafc; opacity: 0.6; }
+
+.status-reason {
+  font-size: 0.8rem;
+  font-weight: 800;
+  padding: 4px 8px;
+  border-radius: 6px;
+}
+
+.status-reason.reason-mine { background: #d1fae5; color: #065f46; }
+.status-reason.reason-priority { background: #ffedd5; color: #c2410c; }
+.status-reason.reason-skill { background: #fef9c3; color: #a16207; }
+.status-reason.reason-law,
+.status-reason.reason-blocked { background: #fee2e2; color: #b91c1c; }
+.status-reason.reason-leave,
+.status-reason.reason-day-taken { background: #fef3c7; color: #92400e; }
+.status-reason.reason-full,
+.status-reason.reason-no-skill { background: #e2e8f0; color: #475569; }
+
+/* ===== 選班結果提示 ===== */
+.bid-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 28px;
+  transform: translateX(-50%);
+  z-index: 1000000;
+  max-width: min(92vw, 640px);
+  padding: 10px 18px;
+  border-radius: 10px;
+  font-weight: 700;
+  font-size: 0.9rem;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.18);
+}
+
+.toast-success { background: #065f46; color: white; }
+.toast-info { background: #334155; color: white; }
+.toast-warning { background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; }
+
+@media (max-width: 720px) {
+  .wb-stats { grid-template-columns: repeat(2, 1fr); width: 100%; }
+  .legend { margin-left: 0; }
+  .progress-row { grid-template-columns: 64px 1fr; }
+  .progress-text { grid-column: 1 / -1; }
 }
 </style>
