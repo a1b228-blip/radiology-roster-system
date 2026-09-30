@@ -1,31 +1,31 @@
 export const ROLES = ['放射師', '護理人員', '書記']
 
 // 人員主檔資料版本：修改 DEFAULT_STAFF 時請一併更新，瀏覽器會自動改載入新名冊
-export const STAFF_DATA_VERSION = 'v2_28staff_20260930'
+export const STAFF_DATA_VERSION = 'v2_28staff_skills_20260930'
 
 export const DEFAULT_STAFF = [
   // 1. 🩻 放射師 (21位，含組長；總技師吳秀蒂為主管不列入排班)
-  { id: 'A00534', name: '江瑞益', title: '放射師', role: '放射師', canNight: false, canSat: true, xray: true, ct: true, cct: true, mri: true, angio: true, mammo: false, bmd: false, us: false, status: '在職', note: '' },
-  { id: '9207H8', name: '廖雪真', title: '放射師', role: '放射師', canNight: true, canSat: true, xray: true, ct: true, cct: true, mri: true, angio: true, mammo: true, bmd: true, us: false, status: '在職', note: '原 940356 廖雪貞更新' },
-  { id: '970140', name: '穆佳琪', title: '放射師', role: '放射師', canNight: true, canSat: true, xray: true, ct: false, cct: false, mri: false, angio: false, mammo: false, bmd: false, us: false, status: '在職', note: '' },
-  { id: 'B204W1', name: '賴妍德', title: '放射師', role: '放射師', canNight: true, canSat: true, xray: true, ct: false, cct: false, mri: false, angio: false, mammo: false, bmd: false, us: false, status: '在職', note: '' },
-  { id: 'B508W3', name: '李婉鈴', title: '放射師', role: '放射師', canNight: true, canSat: true, xray: true, ct: false, cct: false, mri: false, angio: false, mammo: false, bmd: false, us: false, status: '在職', note: '' },
-  { id: '961137', name: '吳志鴻', title: '放射師', role: '放射師', canNight: true, canSat: true, xray: true, ct: false, cct: false, mri: false, angio: false, mammo: false, bmd: false, us: false, status: '在職', note: '' },
-  { id: 'A105W2', name: '張鼎晨', title: '組長', role: '放射師', canNight: false, canSat: true, xray: true, ct: true, cct: true, mri: false, angio: true, mammo: false, bmd: false, us: true, status: '在職', note: '' },
-  { id: '970733', name: '林子翔', title: '放射師', role: '放射師', canNight: true, canSat: true, xray: true, ct: true, cct: true, mri: true, angio: true, mammo: false, bmd: false, us: false, status: '在職', note: '' },
-  { id: '991239', name: '張宇晞', title: '放射師', role: '放射師', canNight: true, canSat: true, xray: true, ct: true, cct: true, mri: true, angio: true, mammo: false, bmd: false, us: false, status: '在職', note: '' },
-  { id: '9309AQ', name: '吳玟娟', title: '放射師', role: '放射師', canNight: true, canSat: true, xray: true, ct: true, cct: true, mri: true, angio: false, mammo: false, bmd: false, us: false, status: '在職', note: '' },
-  { id: 'A204W1', name: '邢乃驊', title: '放射師', role: '放射師', canNight: true, canSat: true, xray: true, ct: true, cct: false, mri: false, angio: false, mammo: false, bmd: false, us: false, status: '在職', note: '' },
-  { id: 'A507W7', name: '黃毓珊', title: '放射師', role: '放射師', canNight: true, canSat: true, xray: true, ct: true, cct: false, mri: false, angio: false, mammo: false, bmd: false, us: false, status: '在職', note: '' },
-  { id: 'A309W2', name: '黃景旻', title: '放射師', role: '放射師', canNight: true, canSat: true, xray: true, ct: false, cct: false, mri: false, angio: false, mammo: false, bmd: false, us: false, status: '在職', note: '' },
-  { id: 'A607Y1', name: '羅云玎', title: '放射師', role: '放射師', canNight: true, canSat: true, xray: true, ct: false, cct: false, mri: false, angio: false, mammo: false, bmd: false, us: false, status: '在職', note: '' },
-  { id: 'B306W5', name: '林家豪', title: '放射師', role: '放射師', canNight: true, canSat: true, xray: true, ct: false, cct: false, mri: false, angio: false, mammo: false, bmd: false, us: false, status: '在職', note: '原 A601W2 更新' },
-  { id: 'B310Y1', name: '羅翊任', title: '放射師', role: '放射師', canNight: true, canSat: true, xray: true, ct: false, cct: false, mri: false, angio: false, mammo: false, bmd: false, us: false, status: '在職', note: '' },
-  { id: 'B406W4', name: '吳詠俽', title: '放射師', role: '放射師', canNight: true, canSat: true, xray: true, ct: false, cct: false, mri: false, angio: false, mammo: false, bmd: false, us: false, status: '在職', note: '' },
+  { id: 'A00534', name: '江瑞益', title: '放射師', role: '放射師', canNight: false, canSat: true, xray: true, ct: true, cct: false, mri: true, angio: true, mammo: false, bmd: true, us: false, status: '在職', note: '' },
+  { id: '9207H8', name: '廖雪真', title: '放射師', role: '放射師', canNight: true, canSat: true, xray: true, ct: true, cct: true, mri: false, angio: false, mammo: true, bmd: true, us: true, status: '在職', note: '原 940356 廖雪貞更新' },
+  { id: '970140', name: '穆佳琪', title: '放射師', role: '放射師', canNight: true, canSat: true, xray: true, ct: true, cct: false, mri: false, angio: false, mammo: true, bmd: true, us: true, status: '在職', note: '' },
+  { id: 'B204W1', name: '賴妍德', title: '放射師', role: '放射師', canNight: true, canSat: true, xray: true, ct: true, cct: false, mri: false, angio: false, mammo: true, bmd: true, us: false, status: '在職', note: '' },
+  { id: 'B508W3', name: '李婉鈴', title: '放射師', role: '放射師', canNight: true, canSat: true, xray: true, ct: true, cct: false, mri: false, angio: false, mammo: true, bmd: true, us: false, status: '在職', note: '' },
+  { id: '961137', name: '吳志鴻', title: '放射師', role: '放射師', canNight: true, canSat: true, xray: true, ct: true, cct: false, mri: false, angio: true, mammo: false, bmd: true, us: true, status: '在職', note: '' },
+  { id: 'A105W2', name: '張鼎晨', title: '組長', role: '放射師', canNight: false, canSat: false, xray: true, ct: true, cct: false, mri: false, angio: true, mammo: false, bmd: true, us: true, status: '在職', note: '' },
+  { id: '970733', name: '林子翔', title: '放射師', role: '放射師', canNight: true, canSat: true, xray: true, ct: true, cct: false, mri: true, angio: true, mammo: false, bmd: true, us: false, status: '在職', note: '' },
+  { id: '991239', name: '張宇晞', title: '放射師', role: '放射師', canNight: true, canSat: true, xray: true, ct: true, cct: false, mri: true, angio: true, mammo: false, bmd: true, us: false, status: '在職', note: '' },
+  { id: '9309AQ', name: '吳玟娟', title: '放射師', role: '放射師', canNight: true, canSat: true, xray: true, ct: true, cct: false, mri: true, angio: false, mammo: false, bmd: true, us: false, status: '在職', note: '' },
+  { id: 'A204W1', name: '邢乃驊', title: '放射師', role: '放射師', canNight: true, canSat: true, xray: true, ct: true, cct: false, mri: false, angio: false, mammo: false, bmd: true, us: false, status: '在職', note: '' },
+  { id: 'A507W7', name: '黃毓珊', title: '放射師', role: '放射師', canNight: true, canSat: true, xray: true, ct: true, cct: false, mri: false, angio: false, mammo: false, bmd: true, us: false, status: '在職', note: '' },
+  { id: 'A309W2', name: '黃景旻', title: '放射師', role: '放射師', canNight: true, canSat: true, xray: true, ct: true, cct: true, mri: false, angio: false, mammo: false, bmd: true, us: false, status: '在職', note: '' },
+  { id: 'A607Y1', name: '羅云玎', title: '放射師', role: '放射師', canNight: true, canSat: true, xray: true, ct: true, cct: true, mri: false, angio: false, mammo: false, bmd: true, us: false, status: '在職', note: '' },
+  { id: 'B306W5', name: '林家豪', title: '放射師', role: '放射師', canNight: true, canSat: true, xray: true, ct: true, cct: false, mri: false, angio: false, mammo: false, bmd: true, us: false, status: '在職', note: '原 A601W2 更新' },
+  { id: 'B310Y1', name: '羅翊任', title: '放射師', role: '放射師', canNight: true, canSat: true, xray: true, ct: true, cct: false, mri: false, angio: false, mammo: false, bmd: true, us: true, status: '在職', note: '' },
+  { id: 'B406W4', name: '吳詠俽', title: '放射師', role: '放射師', canNight: true, canSat: true, xray: true, ct: true, cct: false, mri: false, angio: false, mammo: false, bmd: true, us: false, status: '在職', note: '' },
   { id: 'B503W7', name: '連倛妡', title: '放射師', role: '放射師', canNight: true, canSat: true, xray: true, ct: false, cct: false, mri: false, angio: false, mammo: false, bmd: false, us: false, status: '在職', note: '' },
-  { id: 'B506W6', name: '郭姿妙', title: '放射師', role: '放射師', canNight: true, canSat: true, xray: true, ct: false, cct: false, mri: false, angio: false, mammo: false, bmd: false, us: false, status: '在職', note: '' },
-  { id: 'A609W9', name: '楊恒宜', title: '放射師', role: '放射師', canNight: true, canSat: true, xray: true, ct: false, cct: false, mri: false, angio: false, mammo: false, bmd: false, us: false, status: '在職', note: 'SharePoint 帳號待確認工號' },
-  { id: 'A106W6', name: '邱怡庭', title: '放射師', role: '放射師', canNight: true, canSat: true, xray: true, ct: false, cct: false, mri: false, angio: false, mammo: false, bmd: false, us: false, status: '在職', note: 'SharePoint 帳號待確認工號' },
+  { id: 'B506W6', name: '郭姿妙', title: '放射師', role: '放射師', canNight: true, canSat: true, xray: true, ct: true, cct: false, mri: false, angio: false, mammo: false, bmd: true, us: false, status: '在職', note: '' },
+  { id: 'A609W9', name: '楊恒宜', title: '放射師', role: '放射師', canNight: true, canSat: true, xray: true, ct: true, cct: false, mri: false, angio: false, mammo: false, bmd: true, us: false, status: '停用/留停', note: 'SharePoint 帳號待確認工號' },
+  { id: 'A106W6', name: '邱怡庭', title: '放射師', role: '放射師', canNight: true, canSat: true, xray: true, ct: true, cct: false, mri: false, angio: false, mammo: false, bmd: true, us: false, status: '停用/留停', note: 'SharePoint 帳號待確認工號' },
 
   // 2. 🩺 護理人員 (2位)
   { id: '980898', name: '莊美惠', title: '護理人員', role: '護理人員', canNight: false, canSat: false, xray: false, ct: false, cct: false, mri: false, angio: false, mammo: false, bmd: false, us: false, status: '在職', note: '' },
@@ -131,7 +131,7 @@ export const DEFAULT_COMPLIANCE_RULES = [
 
 // 預設第二專長月指定天數
 export const DEFAULT_SPECIALTY_TARGETS = {
-  '9207H8': { us: 8, mammo: 4, mri: 4 }, // 廖雪真
+  '9207H8': { us: 8, mammo: 4 },         // 廖雪真
   'A105W2': { us: 8 },                   // 張鼎晨
   '970733': { mri: 6, angio: 4 },        // 林子翔
   '991239': { mri: 6, angio: 4 },        // 張宇晞
