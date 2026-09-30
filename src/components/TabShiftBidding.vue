@@ -61,6 +61,21 @@
         </select>
       </div>
 
+      <!-- 🎯 個人每月第二專長目標天數與未上滿即時提醒看板 -->
+      <div class="specialty-progress-panel" v-if="currentMode === 'bidding' && activeRosterRole === '放射師' && specialtyProgress.length">
+        <div class="specialty-progress-title">🎯 【{{ currentStaff?.name }}】本月第二專長目標天數進度</div>
+        <div
+          v-for="item in specialtyProgress"
+          :key="item.key"
+          class="specialty-progress-item"
+          :class="item.target > 0 ? (item.isMet ? 'is-met' : 'is-short') : 'is-info'"
+        >
+          <template v-if="item.target > 0 && !item.isMet">⚠️ 【{{ item.name }}】本月基本應上滿 {{ item.target }} 天，目前已選 {{ item.count }} 天（尚差 {{ item.remain }} 天未上滿，請優先選填！）</template>
+          <template v-else-if="item.target > 0">✅ 【{{ item.name }}】已上滿達標（已選 {{ item.count }} / {{ item.target }} 天）</template>
+          <template v-else>ℹ️ 具備【{{ item.name }}】第二專長（本月未設最低天數門檻，已選 {{ item.count }} 天）</template>
+        </div>
+      </div>
+
     </header>
 
 
@@ -111,6 +126,21 @@
         <div class="drawer-header">
           <h3>🙋‍♂️ 同仁自主選班 - {{ biddingDrawerModal.dateStr }} ({{ getDayOfWeekText(biddingDrawerModal.dateStr) }})</h3>
           <span class="drawer-subtitle">為同仁【{{ currentStaff?.name }}】點擊即可快速勾選或退選班別：</span>
+        </div>
+
+        <!-- 🎯 抽屜頂部：第二專長目標天數進度 -->
+        <div class="specialty-progress-panel" v-if="activeRosterRole === '放射師' && specialtyProgress.length">
+          <div class="specialty-progress-title">🎯 【{{ currentStaff?.name }}】本月第二專長目標天數進度</div>
+          <div
+            v-for="item in specialtyProgress"
+            :key="item.key"
+            class="specialty-progress-item"
+            :class="item.target > 0 ? (item.isMet ? 'is-met' : 'is-short') : 'is-info'"
+          >
+            <template v-if="item.target > 0 && !item.isMet">⚠️ 【{{ item.name }}】本月基本應上滿 {{ item.target }} 天，目前已選 {{ item.count }} 天（尚差 {{ item.remain }} 天未上滿，請優先選填！）</template>
+            <template v-else-if="item.target > 0">✅ 【{{ item.name }}】已上滿達標（已選 {{ item.count }} / {{ item.target }} 天）</template>
+            <template v-else>ℹ️ 具備【{{ item.name }}】第二專長（本月未設最低天數門檻，已選 {{ item.count }} 天）</template>
+          </div>
         </div>
 
         <!-- 抽屜內部即時警告 Banner -->
@@ -509,11 +539,14 @@ const myStats = computed(() => {
 
 function getStaffSkillsBadge(s) {
   const sk = []
-  if (s.xray) sk.push('X-Ray')
+  if (s.xray) sk.push('X光')
   if (s.ct) sk.push('CT')
-  if (s.cct) sk.push('心臟CT')
+  if (s.mammo) sk.push('乳攝')
+  if (s.us) sk.push('超音波')
   if (s.mri) sk.push('MRI')
+  if (s.cct) sk.push('心臟CT')
   if (s.angio) sk.push('特殊')
+  if (s.bmd) sk.push('骨密')
   return sk.length ? sk.join('/') : s.role
 }
 
@@ -569,25 +602,53 @@ function hasSecondarySkill(staff, skillKey) {
   return !!staff[skillKey]
 }
 
+// 第二專長顯示順序（對齊人員排序優先順序）
+const SECONDARY_SKILL_ORDER = [
+  { key: 'mammo', name: '乳房攝影' },
+  { key: 'us', name: '超音波' },
+  { key: 'mri', name: 'MRI' },
+  { key: 'cct', name: '心臟CT' },
+  { key: 'angio', name: '特殊攝影' },
+  { key: 'bmd', name: '骨密牙科' }
+]
+
+// 統計同仁當月已選取的某專長班別天數（比對格子專長門檻或班別對應專長）
+function countSkillSlots(staffId, skillKey) {
+  let count = 0
+  Object.values(props.slotsByDate || {}).forEach(daySlots => {
+    if (!Array.isArray(daySlots)) return
+    daySlots.forEach(slot => {
+      if (!Array.isArray(slot.assignedStaffIds) || !slot.assignedStaffIds.includes(staffId)) return
+      const shiftModKey = props.shiftDefs?.[slot.shiftCode]?.modKey
+      if (slot.requiredSkill === skillKey || shiftModKey === skillKey) count++
+    })
+  })
+  return count
+}
+
+// 目前所選放射師的第二專長目標進度（只列人員檔案有勾選的專長）
+const specialtyProgress = computed(() => {
+  const staff = currentStaff.value
+  if (!staff || staff.role !== '放射師') return []
+  const targets = props.specialtyTargets?.[staff.id] || {}
+  return SECONDARY_SKILL_ORDER
+    .filter(sk => !!staff[sk.key])
+    .map(sk => {
+      const target = Number(targets[sk.key]) || 0
+      const count = countSkillSlots(staff.id, sk.key)
+      return { ...sk, target, count, remain: Math.max(0, target - count), isMet: count >= target }
+    })
+})
+
 function getSkillTargetStatus(staffId, skillKey) {
   if (!staffId || !skillKey || !props.specialtyTargets || !props.specialtyTargets[staffId]) return null
-  const target = props.specialtyTargets[staffId][skillKey]
-  if (!target || target <= 0) return null
+  // 人員檔案已取消勾選的專長不計目標，避免幽靈提醒
+  const staff = props.staffList.find(s => s.id === staffId)
+  if (!staff || !staff[skillKey]) return null
+  const target = Number(props.specialtyTargets[staffId][skillKey]) || 0
+  if (target <= 0) return null
 
-  let count = 0
-  if (props.slotsByDate) {
-    Object.values(props.slotsByDate).forEach(daySlots => {
-      if (Array.isArray(daySlots)) {
-        daySlots.forEach(slot => {
-          if (slot.assignedStaffIds && slot.assignedStaffIds.includes(staffId)) {
-            if (slot.requiredSkill === skillKey) {
-              count++
-            }
-          }
-        })
-      }
-    })
-  }
+  const count = countSkillSlots(staffId, skillKey)
 
   const remain = Math.max(0, target - count)
   return {
@@ -873,6 +934,49 @@ function handleApplyToRoster() {
 .role-tab-btn.active {
   background: #0d5c53;
   color: white;
+}
+
+.specialty-progress-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 10px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+}
+
+.specialty-progress-title {
+  font-weight: 800;
+  font-size: 0.9rem;
+  color: #0d5c53;
+}
+
+.specialty-progress-item {
+  font-size: 0.85rem;
+  font-weight: 700;
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+}
+
+.specialty-progress-item.is-short {
+  background: #fff7ed;
+  color: #c2410c;
+  border-color: #fdba74;
+}
+
+.specialty-progress-item.is-met {
+  background: #f0fdf4;
+  color: #15803d;
+  border-color: #86efac;
+}
+
+.specialty-progress-item.is-info {
+  background: #f0f9ff;
+  color: #0369a1;
+  border-color: #bae6fd;
 }
 
 .user-selector-group {
