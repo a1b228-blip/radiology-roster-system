@@ -25,4 +25,4 @@ V2 系統性修整進行中（由 Google Antigravity 拆任務、Claude Code 執
 - 未處理：資深帶班提醒因移除資歷層級而每次出現（選班引擎仍讀 `level`）；E 小夜隔天 V/公假被 11h 規則擋；切換月份會清空選班（P01）；正式排班分頁按鈕寫死 26 人。
 
 ## 🕐 最後更新
-2026-09-30 21:00｜Claude Code @ 江瑞益的MacBook Air｜Git push：待推
+2026-09-30 21:00｜Claude Code @ 江瑞益的MacBook Air｜Git push：✅ 已推（main）｜⚠️ 線上版 GitHub Pages（gh-pages 分支）尚未重新部署，仍是舊版
