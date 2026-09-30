@@ -12,7 +12,7 @@
         <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
           <button class="btn btn-outline" style="font-size: 0.8rem;" @click="resetToExcelDefaults">
             <RotateCcw :size="14" />
-            <span>重置為預設 29 人名冊</span>
+            <span>重置為預設 28 人名冊</span>
           </button>
           <button class="btn btn-secondary" style="font-size: 0.8rem;" @click="addStaff">
             <UserPlus :size="14" />
@@ -213,7 +213,7 @@ function removeStaff(staffId) {
 }
 
 function resetToExcelDefaults() {
-  if (confirm('確定要將人員名冊重置為預設 29 位同仁名冊嗎？')) {
+  if (confirm('確定要將人員名冊重置為預設 28 位同仁名冊嗎？')) {
     staffList.value = JSON.parse(JSON.stringify(DEFAULT_STAFF))
     emitUpdate()
     alert('✅ 已成功重置人員主檔並同步全域！')

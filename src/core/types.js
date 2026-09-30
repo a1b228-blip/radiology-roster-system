@@ -1,11 +1,10 @@
 export const ROLES = ['放射師', '護理人員', '書記']
 
 // 人員主檔資料版本：修改 DEFAULT_STAFF 時請一併更新，瀏覽器會自動改載入新名冊
-export const STAFF_DATA_VERSION = 'v2_29staff_20260930'
+export const STAFF_DATA_VERSION = 'v2_28staff_20260930'
 
 export const DEFAULT_STAFF = [
-  // 1. 🩻 放射師 (22位，含總技師與組長)
-  { id: '911050', name: '吳秀蒂', title: '總技師', role: '放射師', canNight: true, canSat: true, xray: true, ct: false, cct: false, mri: false, angio: false, mammo: false, bmd: false, us: false, status: '在職', note: '' },
+  // 1. 🩻 放射師 (21位，含組長；總技師吳秀蒂為主管不列入排班)
   { id: 'A00534', name: '江瑞益', title: '放射師', role: '放射師', canNight: false, canSat: true, xray: true, ct: true, cct: true, mri: true, angio: true, mammo: false, bmd: false, us: false, status: '在職', note: '' },
   { id: '9207H8', name: '廖雪真', title: '放射師', role: '放射師', canNight: true, canSat: true, xray: true, ct: true, cct: true, mri: true, angio: true, mammo: true, bmd: true, us: false, status: '在職', note: '原 940356 廖雪貞更新' },
   { id: '970140', name: '穆佳琪', title: '放射師', role: '放射師', canNight: true, canSat: true, xray: true, ct: false, cct: false, mri: false, angio: false, mammo: false, bmd: false, us: false, status: '在職', note: '' },
