@@ -177,7 +177,7 @@ import TabShiftBidding from './components/TabShiftBidding.vue'
 import TabScheduleResult from './components/TabScheduleResult.vue'
 
 
-import { DEFAULT_STAFF, SHIFT_DEFS, DEFAULT_COMPLIANCE_RULES, DEFAULT_SPECIALTY_TARGETS } from './core/types.js'
+import { DEFAULT_STAFF, SHIFT_DEFS, DEFAULT_COMPLIANCE_RULES, DEFAULT_SPECIALTY_TARGETS, STAFF_DATA_VERSION } from './core/types.js'
 
 
 import { solveRoster } from './core/solver.js'
@@ -189,7 +189,23 @@ import { generateDefaultSlots } from './core/biddingEngine.js'
 const year = ref(loadState('year', 2026))
 const month = ref(loadState('month', 9))
 const holidays = ref(loadState('holidays', ['2026-09-28']))
-const staff = ref(loadState('staff', DEFAULT_STAFF))
+// 人員主檔版本檢查：LocalStorage 內的名冊版本不是最新版時，改載入最新預設名冊與第二專長目標
+// （舊資料先另存一份備份，避免手動修改過的內容直接遺失）
+const savedStaffVersion = loadState('staffDataVersion', null)
+const isStaffDataCurrent = savedStaffVersion === STAFF_DATA_VERSION
+if (!isStaffDataCurrent) {
+  const oldStaff = loadState('staff', null)
+  if (oldStaff) {
+    saveState(`staffBackup_${savedStaffVersion || 'legacy'}`, {
+      staff: oldStaff,
+      specialtyTargets: loadState('specialtyTargets', null)
+    })
+  }
+  saveState('staff', DEFAULT_STAFF)
+  saveState('specialtyTargets', DEFAULT_SPECIALTY_TARGETS)
+  saveState('staffDataVersion', STAFF_DATA_VERSION)
+}
+const staff = ref(loadState('staff', JSON.parse(JSON.stringify(DEFAULT_STAFF))))
 const shiftDefs = ref(loadState('shiftDefs', SHIFT_DEFS))
 const constraints = ref(loadState('constraints', {
   enableRestGap: true,
@@ -327,7 +343,7 @@ function handlePrint() {
   window.print()
 }
 
-// 匯出 Excel (無條件直出全科 26 位同仁月排班總表)
+// 匯出 Excel (無條件直出全科同仁月排班總表)
 function handleExportExcel() {
   exportRosterToExcel({
     year: year.value,
@@ -378,18 +394,6 @@ function handleLoadBackup(event) {
 onMounted(() => {
   if (!slotsByDate.value) {
     slotsByDate.value = generateDefaultSlots(year.value, month.value, holidays.value, shiftDefs.value)
-  }
-
-  // 自動平滑修復：將同仁名冊中舊有的「組長」層級自動更新為「主管」
-  if (Array.isArray(staff.value)) {
-    let hasChanged = false
-    staff.value.forEach(s => {
-      if (s.level === '組長') {
-        s.level = '主管'
-        hasChanged = true
-      }
-    })
-    if (hasChanged) saveState('staff', staff.value)
   }
 })
 </script>

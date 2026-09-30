@@ -20,7 +20,7 @@
           <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.3rem;">同仁姓名 (放射師專屬)</label>
           <select v-model="newLeave.staffId" style="width: 100%; padding: 0.5rem; border: 1px solid #cbd5e1; border-radius: 6px; font-weight: 600;">
             <option v-for="s in radiographers" :key="s.id" :value="s.id">
-              {{ s.id }} {{ s.name }} ({{ s.level }})
+              {{ s.id }} {{ s.name }}
             </option>
           </select>
         </div>
@@ -112,7 +112,6 @@
             <tr>
               <th>員號</th>
               <th>放射師姓名</th>
-              <th>資歷層級</th>
               <th>上課總次數</th>
               <th>累計總上課時數 (小時)</th>
               <th>20 小時達成進度</th>
@@ -122,7 +121,6 @@
             <tr v-for="st in staffHoursStats" :key="st.id">
               <td>{{ st.id }}</td>
               <td><strong>{{ st.name }}</strong></td>
-              <td>{{ st.level }}</td>
               <td><span class="badge" style="background: #f1f5f9; color: #334155;">{{ st.courseCount }} 次</span></td>
               <td>
                 <strong style="font-size: 1.05rem; color: #0d5c53;">{{ st.totalHours }} 小時</strong>
@@ -208,7 +206,6 @@ const staffHoursStats = computed(() => {
     return {
       id: s.id,
       name: s.name,
-      level: s.level,
       courseCount: myRecords.length,
       totalHours: parseFloat(totalH.toFixed(1))
     }

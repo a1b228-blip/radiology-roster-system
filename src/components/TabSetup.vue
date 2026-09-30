@@ -12,7 +12,7 @@
         <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
           <button class="btn btn-outline" style="font-size: 0.8rem;" @click="resetToExcelDefaults">
             <RotateCcw :size="14" />
-            <span>重置為 Excel 預設名冊</span>
+            <span>重置為預設 29 人名冊</span>
           </button>
           <button class="btn btn-secondary" style="font-size: 0.8rem;" @click="addStaff">
             <UserPlus :size="14" />
@@ -46,7 +46,6 @@
               <th>員號</th>
               <th>姓名</th>
               <th>職類群組</th>
-              <th>資歷層級</th>
               <th>在職狀態</th>
               <template v-if="showNightAndSatCols">
                 <th>可排夜班</th>
@@ -76,15 +75,6 @@
                   <option value="護理人員">護理人員</option>
                   <option value="書記">書記</option>
                 </select>
-              </td>
-              <td>
-                <select v-model="s.level" @change="emitUpdate" style="padding: 0.2rem; border: 1px solid #cbd5e1; border-radius: 4px;">
-                  <option value="主管">主管</option>
-                  <option value="資深">資深</option>
-                  <option value="常規">常規</option>
-                  <option value="新進">新進</option>
-                </select>
-
               </td>
               <td>
                 <select v-model="s.status" @change="emitUpdate" style="padding: 0.2rem; border: 1px solid #cbd5e1; border-radius: 4px;">
@@ -199,7 +189,6 @@ function addStaff() {
     id: newId,
     name: '新同仁',
     role: defaultRole,
-    level: '常規',
     status: '在職',
     canNight: defaultRole === '放射師',
     canSat: defaultRole === '放射師',
@@ -224,7 +213,7 @@ function removeStaff(staffId) {
 }
 
 function resetToExcelDefaults() {
-  if (confirm('確定要將人員名冊重置為 Excel 原始 26 位同仁檔案嗎？')) {
+  if (confirm('確定要將人員名冊重置為預設 29 位同仁名冊嗎？')) {
     staffList.value = JSON.parse(JSON.stringify(DEFAULT_STAFF))
     emitUpdate()
     alert('✅ 已成功重置人員主檔並同步全域！')

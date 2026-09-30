@@ -23,7 +23,6 @@
             <tr>
               <th style="width: 100px; text-align: center;">員號</th>
               <th style="width: 120px; text-align: center;">放射師姓名</th>
-              <th style="width: 100px; text-align: center;">資歷層級</th>
               <th>具備之第二專長儀器</th>
               <th>當月第二專長最低指定天數 (天/月)</th>
             </tr>
@@ -32,9 +31,6 @@
             <tr v-for="s in qualifiedStaff" :key="s.id">
               <td style="text-align: center; font-weight: 700; font-family: monospace; color: #475569;">{{ s.id }}</td>
               <td style="text-align: center; font-weight: 800; color: #0f172a;">{{ s.name }}</td>
-              <td style="text-align: center;">
-                <span class="badge" style="background: #f1f5f9; color: #334155; font-size: 0.8rem;">{{ s.level }}</span>
-              </td>
               <td>
                 <div style="display: flex; flex-wrap: wrap; gap: 4px;">
                   <span v-if="s.cct" class="skill-tag-secondary">心臟 CT</span>
@@ -62,7 +58,7 @@
               </td>
             </tr>
             <tr v-if="qualifiedStaff.length === 0">
-              <td colspan="5" style="text-align: center; color: #94a3b8; padding: 2rem;">目前尚無具備第二專長之放射師人員。</td>
+              <td colspan="4" style="text-align: center; color: #94a3b8; padding: 2rem;">目前尚無具備第二專長之放射師人員。</td>
             </tr>
           </tbody>
         </table>

@@ -56,7 +56,7 @@
         <label class="section-title"><User :size="18" /> 切換【{{ activeRosterRole }}】同仁：</label>
         <select v-model="selectedStaffId" class="input-select staff-select">
           <option v-for="s in filteredStaffByRole" :key="s.id" :value="s.id">
-            {{ s.name }} ({{ s.level }}) - {{ getStaffSkillsBadge(s) }}
+            {{ s.name }} - {{ getStaffSkillsBadge(s) }}
           </option>
         </select>
       </div>
