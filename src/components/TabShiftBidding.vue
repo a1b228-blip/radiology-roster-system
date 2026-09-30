@@ -597,7 +597,7 @@ function getSkillName(sk) {
 
 function hasSecondarySkill(staff, skillKey) {
   if (!staff || !skillKey) return false
-  const secondaryKeys = ['mri', 'mammo', 'angio', 'us', 'bmd', 'cct']
+  const secondaryKeys = ['mri', 'mammo', 'angio', 'us', 'bmd', 'cct', 'ct']
   if (!secondaryKeys.includes(skillKey)) return false
   return !!staff[skillKey]
 }
@@ -608,6 +608,7 @@ const SECONDARY_SKILL_ORDER = [
   { key: 'us', name: '超音波' },
   { key: 'mri', name: 'MRI' },
   { key: 'cct', name: '心臟CT' },
+  { key: 'ct', name: 'CT' },
   { key: 'angio', name: '特殊攝影' },
   { key: 'bmd', name: '骨密牙科' }
 ]

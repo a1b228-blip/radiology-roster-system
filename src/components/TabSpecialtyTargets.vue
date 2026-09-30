@@ -14,7 +14,7 @@
       </div>
 
       <p style="font-size: 0.85rem; color: #64748b; margin-top: 0.4rem; margin-bottom: 1rem;">
-        本頁面依「放射科人員檔案」即時列出具有<b>第二專長 (乳房攝影、超音波、MRI、心臟 CT、特殊攝影、骨密牙科)</b> 之在職放射師。修改天數會立即自動儲存，並在「同仁自主選班」中提示同仁優先選滿。
+        本頁面依「放射科人員檔案」即時列出具有<b>第二專長 (乳房攝影、超音波、MRI、心臟 CT、CT、特殊攝影、骨密牙科)</b> 之在職放射師。修改天數會立即自動儲存，並在「同仁自主選班」中提示同仁優先選滿。
       </p>
 
       <div class="table-container">
@@ -82,16 +82,17 @@ const localTargets = ref(JSON.parse(JSON.stringify(props.specialtyTargets || {})
 const qualifiedStaff = computed(() => {
   return props.staff.filter(s => {
     if (s.role !== '放射師' || s.status !== '在職') return false
-    return !!(s.mri || s.mammo || s.angio || s.us || s.bmd || s.cct)
+    return !!(s.mri || s.mammo || s.angio || s.us || s.bmd || s.cct || s.ct)
   })
 })
 
-// 顯示順序對齊人員排序優先順序：乳攝 ➔ 超音波 ➔ MRI ➔ 心臟CT ➔ 特殊攝影 ➔ 骨密牙科
+// 顯示順序對齊人員排序優先順序：乳攝 ➔ 超音波 ➔ MRI ➔ 心臟CT ➔ CT ➔ 特殊攝影 ➔ 骨密牙科
 const secondarySkillMap = [
   { key: 'mammo', name: '乳房攝影' },
   { key: 'us', name: '超音波' },
   { key: 'mri', name: 'MRI' },
   { key: 'cct', name: '心臟 CT' },
+  { key: 'ct', name: 'CT' },
   { key: 'angio', name: '特殊攝影' },
   { key: 'bmd', name: '骨密牙科' }
 ]
@@ -102,7 +103,7 @@ function getStaffSecondarySkills(s) {
 
 function getTargetRef(staffId) {
   if (!localTargets.value[staffId]) {
-    localTargets.value[staffId] = { us: 0, mri: 0, angio: 0, mammo: 0, bmd: 0, cct: 0 }
+    localTargets.value[staffId] = { us: 0, mri: 0, angio: 0, mammo: 0, bmd: 0, cct: 0, ct: 0 }
   }
   return localTargets.value[staffId]
 }

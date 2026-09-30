@@ -53,7 +53,7 @@
               </template>
               <template v-if="showMachineSkills">
                 <th style="background: #f1f5f9; color: #334155;">第一專長 (X光)</th>
-                <th style="background: #f1f5f9; color: #334155;">第一專長 (CT)</th>
+                <th style="background: #e0f2fe; color: #0369a1;">第二專長 (CT)</th>
                 <th style="background: #e0f2fe; color: #0369a1;">第二專長 (心臟CT)</th>
                 <th style="background: #e0f2fe; color: #0369a1;">第二專長 (MRI)</th>
                 <th style="background: #e0f2fe; color: #0369a1;">第二專長 (特殊攝影)</th>
