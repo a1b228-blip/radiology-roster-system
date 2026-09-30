@@ -177,7 +177,7 @@ import TabShiftBidding from './components/TabShiftBidding.vue'
 import TabScheduleResult from './components/TabScheduleResult.vue'
 
 
-import { DEFAULT_STAFF, SHIFT_DEFS, DEFAULT_COMPLIANCE_RULES, DEFAULT_SPECIALTY_TARGETS, STAFF_DATA_VERSION } from './core/types.js'
+import { DEFAULT_STAFF, SHIFT_DEFS, DEFAULT_COMPLIANCE_RULES, DEFAULT_SPECIALTY_TARGETS, STAFF_DATA_VERSION, sortStaffBySpecialty } from './core/types.js'
 
 
 import { solveRoster } from './core/solver.js'
@@ -205,7 +205,9 @@ if (!isStaffDataCurrent) {
   saveState('specialtyTargets', DEFAULT_SPECIALTY_TARGETS)
   saveState('staffDataVersion', STAFF_DATA_VERSION)
 }
-const staff = ref(loadState('staff', JSON.parse(JSON.stringify(DEFAULT_STAFF))))
+// 載入時依第二專長重新排序（只調整順序，保留使用者勾選的專長設定）
+const staff = ref(sortStaffBySpecialty(loadState('staff', JSON.parse(JSON.stringify(DEFAULT_STAFF)))))
+saveState('staff', staff.value)
 const shiftDefs = ref(loadState('shiftDefs', SHIFT_DEFS))
 const constraints = ref(loadState('constraints', {
   enableRestGap: true,

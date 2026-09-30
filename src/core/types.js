@@ -1,26 +1,27 @@
 export const ROLES = ['放射師', '護理人員', '書記']
 
 // 人員主檔資料版本：修改 DEFAULT_STAFF 時請一併更新，瀏覽器會自動改載入新名冊
-export const STAFF_DATA_VERSION = 'v2_28staff_skills_20260930'
+export const STAFF_DATA_VERSION = 'v2_28staff_20260930'
 
 export const DEFAULT_STAFF = [
   // 1. 🩻 放射師 (21位，含組長；總技師吳秀蒂為主管不列入排班)
-  { id: 'A00534', name: '江瑞益', title: '放射師', role: '放射師', canNight: false, canSat: true, xray: true, ct: true, cct: false, mri: true, angio: true, mammo: false, bmd: true, us: false, status: '在職', note: '' },
+  //    依第二專長排序：乳房攝影 ➔ 超音波 ➔ MRI ➔ 心臟CT ➔ 其他（見 sortStaffBySpecialty）
   { id: '9207H8', name: '廖雪真', title: '放射師', role: '放射師', canNight: true, canSat: true, xray: true, ct: true, cct: true, mri: false, angio: false, mammo: true, bmd: true, us: true, status: '在職', note: '原 940356 廖雪貞更新' },
   { id: '970140', name: '穆佳琪', title: '放射師', role: '放射師', canNight: true, canSat: true, xray: true, ct: true, cct: false, mri: false, angio: false, mammo: true, bmd: true, us: true, status: '在職', note: '' },
   { id: 'B204W1', name: '賴妍德', title: '放射師', role: '放射師', canNight: true, canSat: true, xray: true, ct: true, cct: false, mri: false, angio: false, mammo: true, bmd: true, us: false, status: '在職', note: '' },
   { id: 'B508W3', name: '李婉鈴', title: '放射師', role: '放射師', canNight: true, canSat: true, xray: true, ct: true, cct: false, mri: false, angio: false, mammo: true, bmd: true, us: false, status: '在職', note: '' },
   { id: '961137', name: '吳志鴻', title: '放射師', role: '放射師', canNight: true, canSat: true, xray: true, ct: true, cct: false, mri: false, angio: true, mammo: false, bmd: true, us: true, status: '在職', note: '' },
   { id: 'A105W2', name: '張鼎晨', title: '組長', role: '放射師', canNight: false, canSat: false, xray: true, ct: true, cct: false, mri: false, angio: true, mammo: false, bmd: true, us: true, status: '在職', note: '' },
+  { id: 'B310Y1', name: '羅翊任', title: '放射師', role: '放射師', canNight: true, canSat: true, xray: true, ct: true, cct: false, mri: false, angio: false, mammo: false, bmd: true, us: true, status: '在職', note: '' },
+  { id: 'A00534', name: '江瑞益', title: '放射師', role: '放射師', canNight: false, canSat: true, xray: true, ct: true, cct: false, mri: true, angio: true, mammo: false, bmd: true, us: false, status: '在職', note: '' },
   { id: '970733', name: '林子翔', title: '放射師', role: '放射師', canNight: true, canSat: true, xray: true, ct: true, cct: false, mri: true, angio: true, mammo: false, bmd: true, us: false, status: '在職', note: '' },
   { id: '991239', name: '張宇晞', title: '放射師', role: '放射師', canNight: true, canSat: true, xray: true, ct: true, cct: false, mri: true, angio: true, mammo: false, bmd: true, us: false, status: '在職', note: '' },
   { id: '9309AQ', name: '吳玟娟', title: '放射師', role: '放射師', canNight: true, canSat: true, xray: true, ct: true, cct: false, mri: true, angio: false, mammo: false, bmd: true, us: false, status: '在職', note: '' },
-  { id: 'A204W1', name: '邢乃驊', title: '放射師', role: '放射師', canNight: true, canSat: true, xray: true, ct: true, cct: false, mri: false, angio: false, mammo: false, bmd: true, us: false, status: '在職', note: '' },
-  { id: 'A507W7', name: '黃毓珊', title: '放射師', role: '放射師', canNight: true, canSat: true, xray: true, ct: true, cct: false, mri: false, angio: false, mammo: false, bmd: true, us: false, status: '在職', note: '' },
   { id: 'A309W2', name: '黃景旻', title: '放射師', role: '放射師', canNight: true, canSat: true, xray: true, ct: true, cct: true, mri: false, angio: false, mammo: false, bmd: true, us: false, status: '在職', note: '' },
   { id: 'A607Y1', name: '羅云玎', title: '放射師', role: '放射師', canNight: true, canSat: true, xray: true, ct: true, cct: true, mri: false, angio: false, mammo: false, bmd: true, us: false, status: '在職', note: '' },
+  { id: 'A204W1', name: '邢乃驊', title: '放射師', role: '放射師', canNight: true, canSat: true, xray: true, ct: true, cct: false, mri: false, angio: false, mammo: false, bmd: true, us: false, status: '在職', note: '' },
+  { id: 'A507W7', name: '黃毓珊', title: '放射師', role: '放射師', canNight: true, canSat: true, xray: true, ct: true, cct: false, mri: false, angio: false, mammo: false, bmd: true, us: false, status: '在職', note: '' },
   { id: 'B306W5', name: '林家豪', title: '放射師', role: '放射師', canNight: true, canSat: true, xray: true, ct: true, cct: false, mri: false, angio: false, mammo: false, bmd: true, us: false, status: '在職', note: '原 A601W2 更新' },
-  { id: 'B310Y1', name: '羅翊任', title: '放射師', role: '放射師', canNight: true, canSat: true, xray: true, ct: true, cct: false, mri: false, angio: false, mammo: false, bmd: true, us: true, status: '在職', note: '' },
   { id: 'B406W4', name: '吳詠俽', title: '放射師', role: '放射師', canNight: true, canSat: true, xray: true, ct: true, cct: false, mri: false, angio: false, mammo: false, bmd: true, us: false, status: '在職', note: '' },
   { id: 'B503W7', name: '連倛妡', title: '放射師', role: '放射師', canNight: true, canSat: true, xray: true, ct: false, cct: false, mri: false, angio: false, mammo: false, bmd: false, us: false, status: '在職', note: '' },
   { id: 'B506W6', name: '郭姿妙', title: '放射師', role: '放射師', canNight: true, canSat: true, xray: true, ct: true, cct: false, mri: false, angio: false, mammo: false, bmd: true, us: false, status: '在職', note: '' },
@@ -38,6 +39,26 @@ export const DEFAULT_STAFF = [
   { id: 'B503Y2', name: '陳雅芬', title: '書記', role: '書記', canNight: false, canSat: false, xray: false, ct: false, cct: false, mri: false, angio: false, mammo: false, bmd: false, us: false, status: '在職', note: '' },
   { id: 'B507W9', name: '許淑閔', title: '書記', role: '書記', canNight: false, canSat: false, xray: false, ct: false, cct: false, mri: false, angio: false, mammo: false, bmd: false, us: false, status: '在職', note: '' }
 ]
+
+// 放射師依第二專長優先順序排序：乳房攝影 ➔ 超音波 ➔ MRI ➔ 心臟CT ➔ 其他
+// 同一群組維持原本相對順序；護理人員、書記排在放射師之後且順序不變
+export function sortStaffBySpecialty(staffList) {
+  if (!Array.isArray(staffList)) return staffList
+  const specialtyGroup = (s) => {
+    if (s.mammo) return 1
+    if (s.us) return 2
+    if (s.mri) return 3
+    if (s.cct) return 4
+    return 5
+  }
+  const radiographers = staffList
+    .map((s, idx) => ({ s, idx }))
+    .filter(({ s }) => s.role === '放射師')
+    .sort((a, b) => specialtyGroup(a.s) - specialtyGroup(b.s) || a.idx - b.idx)
+    .map(({ s }) => s)
+  const others = staffList.filter(s => s.role !== '放射師')
+  return [...radiographers, ...others]
+}
 
 // 適用星期下拉選項對照表
 export const APPLICABLE_DAYS_OPTIONS = [

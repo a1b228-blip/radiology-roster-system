@@ -113,7 +113,7 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
 import { Users, UserPlus, RotateCcw, Save } from 'lucide-vue-next'
-import { DEFAULT_STAFF } from '../core/types.js'
+import { DEFAULT_STAFF, sortStaffBySpecialty } from '../core/types.js'
 import { saveState } from '../core/storage.js'
 
 const props = defineProps({
@@ -176,6 +176,7 @@ function emitUpdate() {
 }
 
 function saveSettings() {
+  staffList.value = sortStaffBySpecialty(staffList.value)
   emitUpdate()
   alert('✅ 【1. 放射科人員檔案】設定已成功儲存並永久固定！切換頁面絕不跑掉。')
 }
@@ -214,7 +215,7 @@ function removeStaff(staffId) {
 
 function resetToExcelDefaults() {
   if (confirm('確定要將人員名冊重置為預設 28 位同仁名冊嗎？')) {
-    staffList.value = JSON.parse(JSON.stringify(DEFAULT_STAFF))
+    staffList.value = sortStaffBySpecialty(JSON.parse(JSON.stringify(DEFAULT_STAFF)))
     emitUpdate()
     alert('✅ 已成功重置人員主檔並同步全域！')
   }
