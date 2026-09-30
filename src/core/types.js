@@ -151,12 +151,10 @@ export const DEFAULT_COMPLIANCE_RULES = [
 ]
 
 // 預設第二專長月指定天數
-export const DEFAULT_SPECIALTY_TARGETS = {
-  '9207H8': { us: 8, mammo: 4 },         // 廖雪真
-  'A105W2': { us: 8 },                   // 張鼎晨
-  '970733': { mri: 6, angio: 4 },        // 林子翔
-  '991239': { mri: 6, angio: 4 },        // 張宇晞
-  'A00534': { mri: 6 }                    // 江瑞益
-}
+// 2026-09-30 使用者指示全部歸零，待路線圖 S1-6 重新設定
+export const DEFAULT_SPECIALTY_TARGETS = {}
+
+// 第二專長目標天數資料版本：變更時瀏覽器會改載入 DEFAULT_SPECIALTY_TARGETS（不影響人員專長勾選）
+export const SPECIALTY_TARGETS_VERSION = 'targets_reset_20260930'
 
 

@@ -177,7 +177,7 @@ import TabShiftBidding from './components/TabShiftBidding.vue'
 import TabScheduleResult from './components/TabScheduleResult.vue'
 
 
-import { DEFAULT_STAFF, SHIFT_DEFS, DEFAULT_COMPLIANCE_RULES, DEFAULT_SPECIALTY_TARGETS, STAFF_DATA_VERSION, sortStaffBySpecialty } from './core/types.js'
+import { DEFAULT_STAFF, SHIFT_DEFS, DEFAULT_COMPLIANCE_RULES, DEFAULT_SPECIALTY_TARGETS, STAFF_DATA_VERSION, SPECIALTY_TARGETS_VERSION, sortStaffBySpecialty } from './core/types.js'
 
 
 import { solveRoster } from './core/solver.js'
@@ -205,6 +205,15 @@ if (!isStaffDataCurrent) {
   saveState('specialtyTargets', DEFAULT_SPECIALTY_TARGETS)
   saveState('staffDataVersion', STAFF_DATA_VERSION)
 }
+// 第二專長目標天數版本檢查：版本不同時只重置目標天數（舊值另存備份），不動人員資料
+const savedTargetsVersion = loadState('specialtyTargetsVersion', null)
+if (savedTargetsVersion !== SPECIALTY_TARGETS_VERSION) {
+  const oldTargets = loadState('specialtyTargets', null)
+  if (oldTargets) saveState(`specialtyTargetsBackup_${savedTargetsVersion || 'legacy'}`, oldTargets)
+  saveState('specialtyTargets', DEFAULT_SPECIALTY_TARGETS)
+  saveState('specialtyTargetsVersion', SPECIALTY_TARGETS_VERSION)
+}
+
 // 載入時依第二專長重新排序（只調整順序，保留使用者勾選的專長設定）
 const staff = ref(sortStaffBySpecialty(loadState('staff', JSON.parse(JSON.stringify(DEFAULT_STAFF)))))
 saveState('staff', staff.value)
