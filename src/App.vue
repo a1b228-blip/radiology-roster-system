@@ -120,6 +120,10 @@
       <TabLeaveEvents 
         v-if="activeTab === 'leave'"
         :staff="staff"
+        :slotsArchive="slotsArchive"
+        :shiftDefs="shiftDefs"
+        :deptRules="deptRules"
+        :constraints="constraints"
         v-model:leaves="leaves"
       />
 
@@ -130,6 +134,7 @@
         :shiftDefs="shiftDefs"
         :deptRules="deptRules"
         :adjacentSlots="adjacentSlots"
+        :leaves="leaves"
         v-model:locks="locks"
       />
 

@@ -177,6 +177,9 @@
           ✅ 你今天已選：<strong>{{ getShiftName(myDayMap[biddingDrawerModal.dateStr].slot.shiftCode) }}</strong>
           （{{ getShiftTime(myDayMap[biddingDrawerModal.dateStr].slot.shiftCode) }}）　若要改選，請先點擊該班退選。
         </div>
+        <div class="drawer-myday is-leave" v-else-if="myDayMap[biddingDrawerModal.dateStr]?.eduLeave">
+          📚 你今天已登記年假上課（比照公假算上班 8 小時），當日無法選班。
+        </div>
         <div class="drawer-myday is-leave" v-else-if="myDayMap[biddingDrawerModal.dateStr]?.leave">
           🏖️ 你今天有請假紀錄，當日無法選班。
         </div>
@@ -369,6 +372,9 @@
               <span class="my-day-shift">{{ getShiftName(myDayMap[dateStr].slot.shiftCode) }}</span>
               <span class="my-day-time">{{ getShiftTime(myDayMap[dateStr].slot.shiftCode) }}</span>
             </div>
+            <div class="my-day-badge is-leave" v-else-if="myDayMap[dateStr]?.eduLeave">
+              <span class="my-day-label">📚 年假上課</span>
+            </div>
             <div class="my-day-badge is-leave" v-else-if="myDayMap[dateStr]?.leave">
               <span class="my-day-label">🏖️ 當日請假</span>
             </div>
@@ -469,6 +475,7 @@ import { User, UserCheck, Sliders, Sparkles, CheckCircle, Plus, Trash2, RotateCc
 import { SHIFT_DEFS } from '../core/types.js'
 import { getShiftHours as calcShiftHours, MIN_REST_HOURS } from '../core/shiftTime.js'
 import { normalizeDeptRules } from '../core/deptRules.js'
+import { isAnnualLeaveClass, getEduDate, EDU_LEAVE_DAY_HOURS } from '../core/education.js'
 import { 
   validateBidding, 
   autoFillUnfilledSlots, 
@@ -641,6 +648,16 @@ const myStats = computed(() => {
     })
   })
 
+  // 年假上課：比照公假算上班 8 小時
+  const monthPrefix = `${props.year}-${String(props.month).padStart(2, '0')}`
+  ;(props.leaves || []).forEach(l => {
+    if (l.staffId === selectedStaffId.value && isAnnualLeaveClass(l) && getEduDate(l).startsWith(monthPrefix)) {
+      days++
+      hours += EDU_LEAVE_DAY_HOURS
+      if (isWeekend(getEduDate(l))) weekends++
+    }
+  })
+
   return { totalDays: days, totalHours: Math.round(hours * 10) / 10, nightCount: nights, weekendCount: weekends }
 })
 
@@ -651,7 +668,8 @@ const myDayMap = computed(() => {
   Object.entries(props.slotsByDate || {}).forEach(([dateStr, daySlots]) => {
     const slot = (daySlots || []).find(s => Array.isArray(s.assignedStaffIds) && s.assignedStaffIds.includes(staffId))
     const leave = (props.leaves || []).some(l => l.staffId === staffId && (l.date === dateStr || l.start === dateStr) && ['full', 'am', 'pm'].includes(l.type))
-    map[dateStr] = { slot: slot || null, leave }
+    const eduLeave = (props.leaves || []).some(l => l.staffId === staffId && isAnnualLeaveClass(l) && getEduDate(l) === dateStr)
+    map[dateStr] = { slot: slot || null, leave, eduLeave }
   })
   return map
 })
@@ -815,6 +833,7 @@ function buildBlockStatus(val) {
   if (val.deptRule) {
     return { kind: 'law', group: 4, label: `⛔ 科內規定阻擋：${val.deptRule.label}` }
   }
+  if (val.eduLeave) return { kind: 'leave', group: 4, label: '📚 當日已登記年假上課' }
   if (msg.includes('請假')) return { kind: 'leave', group: 4, label: '🏖️ 當日有請假紀錄' }
   if (msg.includes('同一天不可重複')) return { kind: 'day-taken', group: 4, label: '📌 今日已選其他班（一天一班）' }
   if (msg.includes('名額已滿')) return { kind: 'full', group: 5, label: '⚪ 名額已滿' }

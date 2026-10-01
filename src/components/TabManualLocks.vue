@@ -89,7 +89,8 @@ const props = defineProps({
   slotsByDate: { type: Object, default: () => ({}) },
   shiftDefs: { type: Object, default: () => ({}) },
   deptRules: { type: Object, default: () => ({}) },
-  adjacentSlots: { type: Object, default: () => ({}) }
+  adjacentSlots: { type: Object, default: () => ({}) },
+  leaves: { type: Array, default: () => [] }
 })
 
 const emit = defineEmits(['update:locks'])
@@ -124,7 +125,7 @@ function addLock() {
       dateStr: newLock.value.date,
       slotsByDate: { ...props.adjacentSlots, ...props.slotsByDate },
       staffList: props.staff,
-      leaves: props.locks,
+      leaves: [...props.locks, ...props.leaves],
       constraints: { enableRestGap: true, restGapHours: 11 },
       customShiftDefs: props.shiftDefs,
       deptRules: props.deptRules

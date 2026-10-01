@@ -6,6 +6,7 @@
 import { SHIFT_DEFS } from './types.js'
 import { MIN_REST_HOURS } from './shiftTime.js'
 import { checkNextDayShift, checkConsecutiveWorkDays, checkNightRuns } from './deptRules.js'
+import { EDU_LEAVE_CODE, EDU_LEAVE_DEF, isAnnualLeaveClass, getEduDate } from './education.js'
 
 /**
  * 根據月份與假日，產生預設的全月工作點班別 Slot 矩陣
@@ -111,6 +112,10 @@ export function validateBidding({
   if (hasLeave) {
     return { valid: false, error: `同仁 ${staff.name} 在 ${dateStr} 有請假紀錄，無法選班` }
   }
+  // 年假上課當天比照公假算上班 8 小時，不可再選其他班（登記年假上課本身的檢查不受此限）
+  if (slot.shiftCode !== EDU_LEAVE_CODE && leaves.some(l => l.staffId === staff.id && isAnnualLeaveClass(l) && getEduDate(l) === dateStr)) {
+    return { valid: false, error: `同仁 ${staff.name} 在 ${dateStr} 已登記年假上課（算上班 8 小時），無法選班`, eduLeave: true }
+  }
 
   // 4. 檢查同日重複選班
   const daySlots = slotsByDate[dateStr] || []
@@ -139,7 +144,7 @@ export function validateBidding({
     const prevDate = getPrevDateStr(dateStr)
     const nextDate = getNextDateStr(dateStr)
     const defsToUse = customShiftDefs || SHIFT_DEFS
-    const getDef = (code) => defsToUse[code] || SHIFT_DEFS[code]
+    const getDef = (code) => (code === EDU_LEAVE_CODE ? EDU_LEAVE_DEF : defsToUse[code] || SHIFT_DEFS[code])
     const targetDef = getDef(slot.shiftCode)
 
     // 同仁已排的班別：日期 ➜ 班別代號清單 (掃描 slotsByDate + leaves)
@@ -156,7 +161,10 @@ export function validateBidding({
     })
     if (Array.isArray(leaves)) {
       leaves.forEach(l => {
-        if (l.staffId === staff.id && l.shiftCode) addShift(l.date || l.start, l.shiftCode)
+        if (l.staffId !== staff.id) return
+        if (l.shiftCode) addShift(l.date || l.start, l.shiftCode)
+        // 年假上課：比照公假 08:00–16:30 算上班，納入休息間隔與連續上班天數
+        else if (isAnnualLeaveClass(l)) addShift(getEduDate(l), EDU_LEAVE_CODE)
       })
     }
 
