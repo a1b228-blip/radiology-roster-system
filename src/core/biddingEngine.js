@@ -4,7 +4,8 @@
  */
 
 import { SHIFT_DEFS } from './types.js'
-import { getShiftInterval, getRestGap, formatClock, MIN_REST_HOURS } from './shiftTime.js'
+import { MIN_REST_HOURS } from './shiftTime.js'
+import { checkNextDayShift, checkConsecutiveWorkDays, checkNightRuns } from './deptRules.js'
 
 /**
  * 根據月份與假日，產生預設的全月工作點班別 Slot 矩陣
@@ -79,7 +80,8 @@ export function validateBidding({
   staffList,
   leaves = [],
   constraints = {},
-  customShiftDefs = SHIFT_DEFS
+  customShiftDefs = SHIFT_DEFS,
+  deptRules
 }) {
   const result = { valid: true, error: null, warnings: [] }
 
@@ -127,62 +129,72 @@ export function validateBidding({
   if (slot.requiredSkill === 'us' && !staff.us) return { valid: false, error: `缺 超音波 證照/資格` }
   if (slot.requiredSkill === 'mammo' && !staff.mammo) return { valid: false, error: `缺 乳房攝影 證照/資格` }
 
-  if ((slot.shiftCode === 'N' || slot.shiftCode === 'E') && !staff.canNight) {
+  if (shiftDef?.nightType && !staff.canNight) {
     return { valid: false, error: `${staff.name} 設定為「不可上夜班/新進人員」，無法選擇急診大小夜班` }
   }
 
-  // 6. 勞基法 11 小時班別休息間隔（雙向檢查前一日與後一日）
-  //    時間一律取自班別設定（shiftTime.js），假別沒有出勤時間不參與檢查
+  // 6. 接班與科內排班基準檢查（規則見 deptRules.js 與 docs/勞基法排班規則草案.md）
+  //    時間一律取自班別設定；特休等沒有出勤時間的假別不參與休息間隔，但仍算上班日
   if (constraints.enableRestGap !== false) {
     const prevDate = getPrevDateStr(dateStr)
     const nextDate = getNextDateStr(dateStr)
     const defsToUse = customShiftDefs || SHIFT_DEFS
     const getDef = (code) => defsToUse[code] || SHIFT_DEFS[code]
+    const targetDef = getDef(slot.shiftCode)
 
-    // 蒐集同仁在指定日期已排的班別 (掃描 slotsByDate + leaves)
-    const collectShifts = (dStr) => {
-      const codes = []
-      if (dStr && slotsByDate && slotsByDate[dStr]) {
-        for (const s of slotsByDate[dStr]) {
-          if (Array.isArray(s.assignedStaffIds) && s.assignedStaffIds.includes(staff.id)) codes.push(s.shiftCode)
-        }
-      }
-      if (dStr && Array.isArray(leaves)) {
-        for (const l of leaves) {
-          if (l.staffId === staff.id && (l.date === dStr || l.start === dStr) && l.shiftCode) codes.push(l.shiftCode)
-        }
-      }
-      return codes
+    // 同仁已排的班別：日期 ➜ 班別代號清單 (掃描 slotsByDate + leaves)
+    const myShiftsByDate = {}
+    const addShift = (dStr, code) => {
+      if (!dStr || !code) return
+      if (!myShiftsByDate[dStr]) myShiftsByDate[dStr] = []
+      myShiftsByDate[dStr].push(code)
+    }
+    Object.entries(slotsByDate || {}).forEach(([dStr, slots]) => {
+      (slots || []).forEach(s => {
+        if (Array.isArray(s.assignedStaffIds) && s.assignedStaffIds.includes(staff.id)) addShift(dStr, s.shiftCode)
+      })
+    })
+    if (Array.isArray(leaves)) {
+      leaves.forEach(l => {
+        if (l.staffId === staff.id && l.shiftCode) addShift(l.date || l.start, l.shiftCode)
+      })
     }
 
-    const restGapError = (earlierCode, earlierDate, laterCode, laterDate, rest) => {
-      const earlierName = getShiftName(earlierCode, defsToUse)
-      const laterName = getShiftName(laterCode, defsToUse)
-      const earlierIv = getShiftInterval(getDef(earlierCode))
-      const laterIv = getShiftInterval(getDef(laterCode))
-      const head = `同仁【${staff.name}】${earlierDate} [${earlierName}] ➜ ${laterDate} [${laterName}]`
-      if (rest.byDeptRule) {
-        return `⛔ 禁止選填（科內規定）：${head}，[${earlierName}] 依科內規定視同 ${formatClock(earlierIv.restEndHour)} 下班起算休息，至 ${formatClock(laterIv.startHour)} 上班僅 ${rest.gap.toFixed(1)} 小時，未滿 ${MIN_REST_HOURS} 小時！`
-      }
-      if (rest.gap < 0) {
-        return `⛔ 違法禁止選填（勞基法第 34 條休息滿 ${MIN_REST_HOURS}h）：${head}，${formatClock(earlierIv.endHour)} 下班前即須於 ${formatClock(laterIv.startHour)} 上班，兩班時段重疊！`
-      }
-      return `⛔ 違法禁止選填（勞基法第 34 條休息滿 ${MIN_REST_HOURS}h）：${head}，${formatClock(earlierIv.endHour)} 下班至 ${formatClock(laterIv.startHour)} 上班，兩班間隔僅 ${rest.gap.toFixed(1)} 小時，低於法定 ${MIN_REST_HOURS} 小時限制！`
-    }
+    const blocked = (title, earlierCode, earlierDate, laterCode, laterDate, problem, extra) => ({
+      valid: false,
+      error: `⛔ ${title}：同仁【${staff.name}】${earlierDate} [${getShiftName(earlierCode, defsToUse)}] ➜ ${laterDate} [${getShiftName(laterCode, defsToUse)}]，${problem.detail}！`,
+      ...extra
+    })
+    const pairTitle = (problem) => (problem.byDeptRule ? '禁止選填（科內規定）' : `違法禁止選填（勞基法第 34 條休息滿 ${MIN_REST_HOURS}h）`)
 
     // A. 前一日已排班別 ➜ 今日欲選班別
-    for (const pCode of collectShifts(prevDate)) {
-      const rest = getRestGap(getDef(pCode), getDef(slot.shiftCode))
-      if (rest && !rest.ok) {
-        return { valid: false, error: restGapError(pCode, prevDate, slot.shiftCode, dateStr, rest), restGap: { direction: 'prev', otherCode: pCode, gap: rest.gap, byDeptRule: rest.byDeptRule } }
+    for (const pCode of myShiftsByDate[prevDate] || []) {
+      const problem = checkNextDayShift(getDef(pCode), targetDef, deptRules)
+      if (problem) {
+        return blocked(pairTitle(problem), pCode, prevDate, slot.shiftCode, dateStr, problem, { restGap: { direction: 'prev', otherCode: pCode, ...problem } })
       }
     }
 
     // B. 今日欲選班別 ➜ 後一日已排班別
-    for (const nCode of collectShifts(nextDate)) {
-      const rest = getRestGap(getDef(slot.shiftCode), getDef(nCode))
-      if (rest && !rest.ok) {
-        return { valid: false, error: restGapError(slot.shiftCode, dateStr, nCode, nextDate, rest), restGap: { direction: 'next', otherCode: nCode, gap: rest.gap, byDeptRule: rest.byDeptRule } }
+    for (const nCode of myShiftsByDate[nextDate] || []) {
+      const problem = checkNextDayShift(targetDef, getDef(nCode), deptRules)
+      if (problem) {
+        return blocked(pairTitle(problem), slot.shiftCode, dateStr, nCode, nextDate, problem, { restGap: { direction: 'next', otherCode: nCode, ...problem } })
+      }
+    }
+
+    // C. 連續上班天數（特休、公假都算上班）
+    const consecutive = checkConsecutiveWorkDays(Object.keys(myShiftsByDate), dateStr, deptRules)
+    if (consecutive) {
+      return { valid: false, error: `⛔ 禁止選填（科內規定）：同仁【${staff.name}】${consecutive.detail}！`, deptRule: consecutive }
+    }
+
+    // D. 小夜／大夜每月輪數與每輪連續天數
+    if (targetDef?.nightType) {
+      const sameTypeDates = Object.keys(myShiftsByDate).filter(d => myShiftsByDate[d].some(code => getDef(code)?.nightType === targetDef.nightType))
+      const nightRun = checkNightRuns(sameTypeDates, dateStr, targetDef.nightType, deptRules)
+      if (nightRun) {
+        return { valid: false, error: `⛔ 禁止選填（科內規定）：同仁【${staff.name}】${nightRun.detail}！`, deptRule: nightRun }
       }
     }
   }
@@ -206,7 +218,7 @@ export function validateBidding({
 /**
  * 智慧自動填補缺額 (Auto Fill Unfilled Slots)
  */
-export function autoFillUnfilledSlots({ slotsByDate, staffList, leaves, constraints, customShiftDefs = SHIFT_DEFS }) {
+export function autoFillUnfilledSlots({ slotsByDate, staffList, leaves, constraints, customShiftDefs = SHIFT_DEFS, deptRules, adjacentSlots = {} }) {
   const updatedSlots = JSON.parse(JSON.stringify(slotsByDate))
 
   const staffCounts = {}
@@ -231,11 +243,12 @@ export function autoFillUnfilledSlots({ slotsByDate, staffList, leaves, constrai
               staff,
               slot,
               dateStr,
-              slotsByDate: updatedSlots,
+              slotsByDate: { ...adjacentSlots, ...updatedSlots },
               staffList,
               leaves,
               constraints,
-              customShiftDefs
+              customShiftDefs,
+              deptRules
             })
             return val.valid
           })

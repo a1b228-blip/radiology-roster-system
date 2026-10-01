@@ -43,6 +43,7 @@
               <th>班別代號</th>
               <th>班別名稱</th>
               <th>適用職類</th>
+              <th title="小夜班、大夜班會套用科內夜班規則（每月輪數、每輪連續天數、大夜後休假），並檢查同仁的夜班資格。">夜班類別</th>
               <th>上班時間</th>
               <th>下班時間</th>
               <th title="班內休息時間，不計入工時，也不影響班與班之間的休息間隔檢查。">班內休息<br /><span style="font-weight: 500; font-size: 0.7rem;">(分鐘，不計工時)</span></th>
@@ -71,6 +72,13 @@
                   <option value="放射師">🩻 放射師</option>
                   <option value="護理人員">🩺 護理人員</option>
                   <option value="書記">📝 書記</option>
+                </select>
+              </td>
+              <td>
+                <select v-model="info.nightType" @change="emitChange" style="padding: 0.2rem; border: 1px solid #cbd5e1; border-radius: 4px; font-weight: 600;">
+                  <option value="">非夜班</option>
+                  <option value="evening">🌆 小夜班</option>
+                  <option value="night">🌙 大夜班</option>
                 </select>
               </td>
               <td>
@@ -168,7 +176,7 @@
         </div>
       </div>
       <p style="font-size: 0.8rem; color: #64748b; margin-top: 0.6rem;">
-        ✅ 隔天可接　⛔ 隔天不可接（休息未滿 {{ MIN_REST_HOURS }} 小時）。特休、公假等沒有出勤時間的假別不受休息間隔限制，故不列出。
+        ✅ 隔天可接　⛔ 隔天不可接（休息未滿 {{ MIN_REST_HOURS }} 小時，或違反科內規定）。特休等沒有出勤時間的假別不受休息間隔限制，故不列出。連續上班天數與夜班輪數要看整個月的班表，不在這個預覽範圍內。
       </p>
     </div>
   </div>
@@ -178,12 +186,14 @@
 import { ref, computed, watch } from 'vue'
 import { Clock, Plus, RotateCcw, Save, ShieldCheck } from 'lucide-vue-next'
 import { SHIFT_DEFS, APPLICABLE_DAYS_OPTIONS } from '../core/types.js'
-import { getShiftInterval, getShiftHours, getBreakMinutes, getRestGap, formatClock, formatTimeRange, MIN_REST_HOURS } from '../core/shiftTime.js'
+import { getShiftInterval, getShiftHours, getBreakMinutes, formatClock, formatTimeRange, MIN_REST_HOURS } from '../core/shiftTime.js'
+import { checkNextDayShift } from '../core/deptRules.js'
 
 import { saveState } from '../core/storage.js'
 
 const props = defineProps({
-  shiftDefs: { type: Object, default: () => ({}) }
+  shiftDefs: { type: Object, default: () => ({}) },
+  deptRules: { type: Object, default: () => ({}) }
 })
 
 const emit = defineEmits(['update:shiftDefs', 'rename-code'])
@@ -266,16 +276,19 @@ const previewRows = computed(() => {
   const prev = previewInfo.value
   if (!prev) return []
   return timedShiftsList.value.map(next => {
-    const rest = getRestGap(prev, next)
-    const gapText = rest.gap < 0 ? '時段重疊' : `間隔 ${Math.round(rest.gap * 10) / 10} h`
+    const problem = checkNextDayShift(prev, next, props.deptRules)
+    const prevIv = getShiftInterval(prev)
+    const nextIv = getShiftInterval(next)
+    const actualGap = Math.round((24 + nextIv.startHour - prevIv.endHour) * 10) / 10
+    const gapText = problem ? problem.label : `間隔 ${actualGap} h`
     return {
       code: next.originalCode,
       name: next.name,
       start: next.start,
-      ok: rest.ok,
-      byDeptRule: rest.byDeptRule,
+      ok: !problem,
+      byDeptRule: !!problem?.byDeptRule,
       gapText,
-      title: `前一日 ${prev.originalCode} ➜ 隔日 ${next.originalCode}：${gapText}${rest.byDeptRule ? `（實際間隔 ${Math.round(rest.actualGap * 10) / 10} h，依科內規定起算）` : ''}`
+      title: `前一日 ${prev.originalCode} ➜ 隔日 ${next.originalCode}：${problem ? problem.detail : gapText}`
     }
   })
 })
@@ -311,6 +324,7 @@ function emitChange() {
     rest.end = rest.end || ''
     rest.restEnd = getShiftInterval(rest) ? (rest.restEnd || '') : ''
     rest.breakMinutes = getBreakMinutes(rest)
+    rest.nightType = rest.nightType || ''
     rest.time = formatTimeRange(rest.start, rest.end)
     cleanObj[originalCode] = rest
   })
@@ -335,6 +349,7 @@ function addShift() {
     end: '16:30',
     restEnd: '',
     breakMinutes: 30,
+    nightType: '',
     time: '08:00 - 16:30',
     room: '檢查室',
     color: '#0d5c53',

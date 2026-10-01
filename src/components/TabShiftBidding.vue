@@ -115,15 +115,21 @@
         <ShieldAlert :size="16" />
         <strong>勞基法接班防呆（系統自動阻擋）</strong>
         <span class="rule-chip">兩班之間休息須滿 11 小時</span>
-        <span class="rule-chip">半天班隔天禁大夜（科內規定）</span>
-        <span class="rule-chip">特休／公假不受限</span>
+        <span class="rule-chip">連續上班最多 {{ deptRulesView.maxConsecutiveWorkDays }} 天</span>
+        <span class="rule-chip">小夜／大夜每月各最多 {{ deptRulesView.eveningMaxRunsPerMonth }}／{{ deptRulesView.nightMaxRunsPerMonth }} 輪</span>
+        <span class="rule-chip">大夜隔天須休假</span>
+        <span class="rule-chip">半天班隔天禁大夜</span>
+        <span class="rule-chip">公假比照日班算上班</span>
         <span class="rules-toggle-hint">點擊展開完整說明</span>
       </summary>
       <div class="rules-detail">
         <div>• <strong>休息滿 11 小時</strong>：前一班下班到下一班上班未滿 11 小時即阻擋。時間直接取自「班別與時間段設定」，改了時間這裡的判定會跟著變。</div>
         <div>• <strong>以目前預設時間為例</strong>：日班／晚班／小夜班 ➜ 隔天不可接大夜班 N；MRI 晚班 e(m)（21:30 下班）➜ 隔天不可接 08:00 日班；一般小夜班 E（00:30 下班）➜ 隔天不可接 11:30 前上班的班別。</div>
-        <div>• <strong>科內規定</strong>：半天班視同 16:30 下班起算休息，隔天一樣不可接大夜班（可在班別設定的「休息起算時間」調整）。</div>
-        <div>• 特休、公假沒有出勤時間，不受休息間隔限制。完整對照請看「班別與時間段設定」下方的「接班檢核預覽」；日曆與選班明細會直接標示阻擋原因。</div>
+        <div>• <strong>科內規定・連續上班</strong>：最多連續 {{ deptRulesView.maxConsecutiveWorkDays }} 天，特休、公假都算上班。</div>
+        <div>• <strong>科內規定・夜班</strong>：小夜班每月最多 {{ deptRulesView.eveningMaxRunsPerMonth }} 輪、每輪最多連續 {{ deptRulesView.eveningMaxRunLength }} 天；大夜班每月最多 {{ deptRulesView.nightMaxRunsPerMonth }} 輪、每輪最多連續 {{ deptRulesView.nightMaxRunLength }} 天。連續排的夜班算同一輪。</div>
+        <div v-if="deptRulesView.restDayAfterNight">• <strong>科內規定・大夜後休假</strong>：大夜班隔天必須休假，再隔一天才能接白班（中午前上班的班別，含公假）。</div>
+        <div>• <strong>科內規定・半天班</strong>：半天班視同 16:30 下班起算休息，隔天一樣不可接大夜班（可在班別設定的「休息起算時間」調整）。</div>
+        <div>• 公假比照日班 08:00–16:30 算上班，受以上所有規則限制；特休沒有出勤時間，不受休息間隔限制，但算入連續上班天數。科內標準可在「排班規範與權重設定」調整。完整對照請看「班別與時間段設定」下方的「接班檢核預覽」；日曆與選班明細會直接標示阻擋原因。</div>
       </div>
     </details>
 
@@ -462,6 +468,7 @@ import { ref, computed, watch } from 'vue'
 import { User, UserCheck, Sliders, Sparkles, CheckCircle, Plus, Trash2, RotateCcw, Calendar, Clock, ShieldAlert } from 'lucide-vue-next'
 import { SHIFT_DEFS } from '../core/types.js'
 import { getShiftHours as calcShiftHours, MIN_REST_HOURS } from '../core/shiftTime.js'
+import { normalizeDeptRules } from '../core/deptRules.js'
 import { 
   validateBidding, 
   autoFillUnfilledSlots, 
@@ -483,6 +490,8 @@ const props = defineProps({
   holidays: { type: Array, default: () => [] },
   leaves: { type: Array, default: () => [] },
   constraints: { type: Object, default: () => ({}) },
+  deptRules: { type: Object, default: () => ({}) },
+  adjacentSlots: { type: Object, default: () => ({}) },
   specialtyTargets: { type: Object, default: () => ({}) }
 })
 
@@ -582,6 +591,12 @@ const currentStaff = computed(() => {
   return props.staffList.find(s => s.id === selectedStaffId.value)
 })
 
+// 驗證用班表：當月加上前後月，讓連續上班、夜班連續天數與班間休息能跨月檢查
+const validationSlots = computed(() => ({ ...props.adjacentSlots, ...props.slotsByDate }))
+
+// 科內排班基準（顯示用）
+const deptRulesView = computed(() => normalizeDeptRules(props.deptRules))
+
 // 班別定義：主管自訂設定優先，內建定義補齊
 const mergedDefs = computed(() => ({ ...SHIFT_DEFS, ...(props.shiftDefs || {}) }))
 
@@ -620,7 +635,7 @@ const myStats = computed(() => {
       if (slot.assignedStaffIds.includes(selectedStaffId.value)) {
         days++
         hours += getShiftHours(slot.shiftCode)
-        if (['e', 'n'].includes(String(slot.shiftCode).toLowerCase())) nights++
+        if (mergedDefs.value[slot.shiftCode]?.nightType) nights++
         if (isWeekend(dateStr)) weekends++
       }
     })
@@ -791,11 +806,14 @@ function getSlotSkill(slot) {
 function buildBlockStatus(val) {
   const msg = String(val.error || '')
   if (val.restGap) {
-    const { direction, otherCode, gap, byDeptRule } = val.restGap
+    const { direction, otherCode, byDeptRule, type, label } = val.restGap
     const where = direction === 'prev' ? `前日 ${otherCode} 班` : `隔日已排 ${otherCode} 班`
-    const gapText = gap < 0 ? '兩班時段重疊' : `休息僅 ${gap.toFixed(1)}h`
     const title = byDeptRule ? '科內規定阻擋' : '勞基法阻擋'
-    return { kind: 'law', group: 4, label: `⛔ ${title}：${where}，${gapText}（未滿 ${MIN_REST_HOURS}h）` }
+    const suffix = type === 'rest' ? `（未滿 ${MIN_REST_HOURS}h）` : ''
+    return { kind: 'law', group: 4, label: `⛔ ${title}：${where}，${label}${suffix}` }
+  }
+  if (val.deptRule) {
+    return { kind: 'law', group: 4, label: `⛔ 科內規定阻擋：${val.deptRule.label}` }
   }
   if (msg.includes('請假')) return { kind: 'leave', group: 4, label: '🏖️ 當日有請假紀錄' }
   if (msg.includes('同一天不可重複')) return { kind: 'day-taken', group: 4, label: '📌 今日已選其他班（一天一班）' }
@@ -816,11 +834,12 @@ function evaluateSlot(staff, slot, dateStr) {
     staff,
     slot,
     dateStr,
-    slotsByDate: props.slotsByDate,
+    slotsByDate: validationSlots.value,
     staffList: props.staffList,
     leaves: props.leaves,
     constraints: props.constraints,
-    customShiftDefs: props.shiftDefs
+    customShiftDefs: props.shiftDefs,
+    deptRules: props.deptRules
   })
   if (!val.valid) return { ...buildBlockStatus(val), isSecondary, error: val.error }
   const target = isSecondary ? getSkillTargetStatus(staff.id, skill) : null
@@ -984,11 +1003,12 @@ function toggleSlotBidding(slot, dateStr) {
       staff,
       slot: current,
       dateStr,
-      slotsByDate: props.slotsByDate,
+      slotsByDate: validationSlots.value,
       staffList: props.staffList,
       leaves: props.leaves,
       constraints: props.constraints,
-      customShiftDefs: props.shiftDefs
+      customShiftDefs: props.shiftDefs,
+      deptRules: props.deptRules
     })
 
     if (!val.valid) {
@@ -1111,10 +1131,12 @@ function handleResetDefaultSlots() {
 function handleAutoFill() {
   const filledSlots = autoFillUnfilledSlots({
     slotsByDate: props.slotsByDate,
+    adjacentSlots: props.adjacentSlots,
     staffList: props.staffList,
     leaves: props.leaves,
     constraints: props.constraints,
-    customShiftDefs: props.shiftDefs
+    customShiftDefs: props.shiftDefs,
+    deptRules: props.deptRules
   })
   emit('update:slotsByDate', filledSlots)
   alert(`【${activeRosterRole.value}】智慧填補完成！已自動將符合資格之同仁排入缺額班別中。`)

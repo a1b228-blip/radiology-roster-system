@@ -77,11 +77,13 @@ export const APPLICABLE_DAYS_OPTIONS = [
 // 班別時間以 time 填寫，系統會自動拆成 start / end 欄位（見 shiftTime.js）
 // restEnd＝休息起算時間（科內規定）：半天班視同 16:30 下班，隔天不可接大夜班
 // breakMinutes＝班內休息分鐘數，不計入工時
+// nightType＝夜班類別（evening 小夜、night 大夜），科內夜班規則依此判斷
+// 公假比照日班 08:00–16:30、工時 8 小時，算上班並受所有排班規則限制（2026-10-01 使用者確認）
 const RAW_SHIFT_DEFS = {
   // ===== 1. 🩻 放射師班別 =====
   "D": { "name": "一般日班", "time": "08:00 - 16:30", "breakMinutes": 30, "room": "一般X光", "color": "#475569", "needsSenior": false, "targetRole": "放射師", "modKey": "xray", "applicableDays": "1,2,3,4,5" },
-  "E": { "name": "一般小夜班", "time": "16:00 - 00:30", "breakMinutes": 30, "room": "急診X光", "color": "#d97706", "needsSenior": false, "targetRole": "放射師", "modKey": "xray", "applicableDays": "0,1,2,3,4,5,6" },
-  "N": { "name": "大夜班", "time": "00:00 - 08:30", "breakMinutes": 30, "room": "急診X光", "color": "#dc2626", "needsSenior": false, "targetRole": "放射師", "modKey": "xray", "applicableDays": "0,1,2,3,4,5,6" },
+  "E": { "name": "一般小夜班", "nightType": "evening", "time": "16:00 - 00:30", "breakMinutes": 30, "room": "急診X光", "color": "#d97706", "needsSenior": false, "targetRole": "放射師", "modKey": "xray", "applicableDays": "0,1,2,3,4,5,6" },
+  "N": { "name": "大夜班", "nightType": "night", "time": "00:00 - 08:30", "breakMinutes": 30, "room": "急診X光", "color": "#dc2626", "needsSenior": false, "targetRole": "放射師", "modKey": "xray", "applicableDays": "0,1,2,3,4,5,6" },
   "d(US)": { "name": "US白班", "time": "08:00 - 16:30", "breakMinutes": 30, "room": "超音波檢查室", "color": "#0284c7", "needsSenior": false, "targetRole": "放射師", "modKey": "us", "applicableDays": "1,2,3,4,5" },
   "d1": { "name": "US半天班", "time": "08:00 - 12:00", "restEnd": "16:30", "breakMinutes": 0, "room": "超音波檢查室", "color": "#0f766e", "needsSenior": false, "targetRole": "放射師", "modKey": "us", "applicableDays": "6" },
   "T": { "name": "CT", "time": "08:00 - 16:30", "breakMinutes": 30, "room": "CT檢查室", "color": "#4f46e5", "needsSenior": true, "targetRole": "放射師", "modKey": "ct", "applicableDays": "1,2,3,4,5" },
@@ -109,7 +111,7 @@ const RAW_SHIFT_DEFS = {
 
   // ===== 4. 🏖️ 通用假別 =====
   "V": { "name": "特休", "time": "-", "room": "特休", "color": "#0284c7", "needsSenior": false, "targetRole": null, "modKey": null, "applicableDays": "1,2,3,4,5" },
-  "公": { "name": "公假", "time": "-", "room": "公假", "color": "#059669", "needsSenior": false, "targetRole": null, "modKey": null, "applicableDays": "1,2,3,4,5" },
+  "公": { "name": "公假", "time": "08:00 - 16:30", "breakMinutes": 30, "room": "公假", "color": "#059669", "needsSenior": false, "targetRole": null, "modKey": null, "applicableDays": "1,2,3,4,5" },
   "OFF": { "name": "休假/例假", "time": "-", "room": "-", "color": "#94a3b8", "needsSenior": false, "targetRole": null, "modKey": null, "applicableDays": "0,1,2,3,4,5,6" }
 }
 

@@ -8,6 +8,7 @@
  *   end     下班時間 "HH:MM"（早於或等於上班時間代表跨日）
  *   restEnd 休息起算時間 "HH:MM"（科內規定用，留空＝以實際下班時間起算）
  *   breakMinutes 班內休息分鐘數（不計入工時；不影響班間休息間隔）
+ *   nightType 夜班類別：'evening' 小夜班、'night' 大夜班、'' 非夜班（科內夜班規則用）
  *   time    顯示用文字 "08:00 - 16:30"，由 start/end 自動產生
  */
 
@@ -17,6 +18,7 @@ export const MIN_REST_HOURS = 11
 // 舊版程式把這些日間班別的下班時間一律至少算到 16:30（半天班隔天不可接大夜）
 const LEGACY_DAY_SHIFT_CODES = ['D', 'SAT_D', 'T', 'D_CCT', 'd(US)', 'd(m)', 'C9', 'C8', 'M', 'd1', 'C2', 'C2(m)', '83（行）', 'CO（n）']
 const LEGACY_DAY_SHIFT_REST_END = '16:30'
+const LEGACY_NIGHT_TYPES = { E: 'evening', N: 'night' }
 
 /** 將 "8:00"、"08：00"、"0800" 等寫法轉成小時數，無法辨識回傳 null */
 export function parseClock(str) {
@@ -176,6 +178,8 @@ export function normalizeShiftDef(code, def, { legacy = false } = {}) {
   }
 
   result.breakMinutes = getBreakMinutes(result)
+  // 舊資料沒有夜班類別時，依原本寫死的代號補上（E＝小夜、N＝大夜）
+  if (def.nightType === undefined) result.nightType = LEGACY_NIGHT_TYPES[code] || ''
   result.time = formatTimeRange(result.start, result.end)
   return result
 }

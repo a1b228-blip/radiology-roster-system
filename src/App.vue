@@ -105,11 +105,13 @@
       <TabRulesAndWeights
         v-if="activeTab === 'rules'"
         v-model:complianceRules="complianceRules"
+        v-model:deptRules="deptRules"
       />
 
       <TabShiftDefs 
         v-if="activeTab === 'shifts'" 
         v-model:shiftDefs="shiftDefs"
+        :deptRules="deptRules"
         @rename-code="handleRenameShiftCode"
       />
 
@@ -126,6 +128,8 @@
         :staff="staff"
         :slotsByDate="slotsByDate"
         :shiftDefs="shiftDefs"
+        :deptRules="deptRules"
+        :adjacentSlots="adjacentSlots"
         v-model:locks="locks"
       />
 
@@ -139,6 +143,8 @@
         :holidays="holidays"
         :leaves="leaves"
         :constraints="constraints"
+        :deptRules="deptRules"
+        :adjacentSlots="adjacentSlots"
         :specialtyTargets="specialtyTargets"
         @apply-to-roster="handleApplyBiddingToRoster"
       />
@@ -166,7 +172,7 @@
 </template>
 
 <script setup>
-import { ref, watch, onMounted } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { Calendar, Clock, UserMinus, Lock, Zap, UserCheck, Award, ShieldCheck } from 'lucide-vue-next'
 
 import HeaderNav from './components/HeaderNav.vue'
@@ -187,7 +193,8 @@ import { solveRoster } from './core/solver.js'
 import { exportRosterToExcel } from './core/exporter.js'
 import { loadState, saveState, exportBackupJSON, importBackupJSON } from './core/storage.js'
 import { generateDefaultSlots } from './core/biddingEngine.js'
-import { normalizeShiftDefs } from './core/shiftTime.js'
+import { normalizeShiftDefs, getShiftInterval } from './core/shiftTime.js'
+import { normalizeDeptRules } from './core/deptRules.js'
 
 // 核心響應式狀態 (全可由主管在 UI 直接修改)
 const year = ref(loadState('year', 2026))
@@ -223,6 +230,16 @@ const staff = ref(sortStaffBySpecialty(loadState('staff', JSON.parse(JSON.string
 saveState('staff', staff.value)
 // 班別定義：舊版只存時間文字的資料，載入時自動補齊 start / end / restEnd 欄位（不更動使用者原本的設定值）
 const shiftDefs = ref(normalizeShiftDefs(loadState('shiftDefs', SHIFT_DEFS), { legacy: true }))
+// 一次性更新：公假比照日班 08:00–16:30 算上班（2026-10-01 使用者確認）。只在公假尚未設定時間時補上，之後不再覆寫
+if (loadState('shiftDefsPatch', null) !== 'publicLeaveAsDayShift_20261001') {
+  if (shiftDefs.value['公'] && !getShiftInterval(shiftDefs.value['公'])) {
+    shiftDefs.value['公'] = { ...shiftDefs.value['公'], start: SHIFT_DEFS['公'].start, end: SHIFT_DEFS['公'].end, breakMinutes: SHIFT_DEFS['公'].breakMinutes, time: SHIFT_DEFS['公'].time }
+    saveState('shiftDefs', shiftDefs.value)
+  }
+  saveState('shiftDefsPatch', 'publicLeaveAsDayShift_20261001')
+}
+// 科內排班基準（可調整，但不會比法規寬鬆）
+const deptRules = ref(normalizeDeptRules(loadState('deptRules', null)))
 const constraints = ref(loadState('constraints', {
   enableRestGap: true,
   restGapHours: 11,
@@ -238,6 +255,26 @@ const manualEdits = ref(loadState('manualEdits', {}))
 // 全月需求班別 Slot 矩陣
 const slotsByDate = ref(loadState('slotsByDate', null) || generateDefaultSlots(year.value, month.value, holidays.value, shiftDefs.value))
 
+// 各月份班表存檔（'YYYY-MM' ➜ 該月 Slot 矩陣）：切換月份不再清空，並供跨月規則檢查使用
+const monthKey = (y, m) => `${y}-${String(m).padStart(2, '0')}`
+const slotsArchive = ref(loadState('slotsArchive', {}))
+
+// 目前月份的班表隨時同步進存檔
+watch(slotsByDate, (newSlots) => {
+  if (!newSlots) return
+  slotsArchive.value = { ...slotsArchive.value, [monthKey(year.value, month.value)]: newSlots }
+}, { deep: true, immediate: true })
+
+// 上個月與下個月的班表：讓連續上班天數、夜班連續天數、班間休息能跨月檢查
+const adjacentSlots = computed(() => {
+  const prev = new Date(year.value, month.value - 2, 1)
+  const next = new Date(year.value, month.value, 1)
+  return {
+    ...(slotsArchive.value[monthKey(prev.getFullYear(), prev.getMonth() + 1)] || {}),
+    ...(slotsArchive.value[monthKey(next.getFullYear(), next.getMonth() + 1)] || {})
+  }
+})
+
 const fontScale = ref(1.0)
 const showEditHighlight = ref(true)
 const activeTab = ref('bidding') // 預設開啟同仁自主選班 Tab
@@ -247,7 +284,7 @@ const complianceRules = ref(loadState('complianceRules', null) || DEFAULT_COMPLI
 
 
 // 監聽並持久化儲存
-watch([year, month, holidays, staff, shiftDefs, constraints, leaves, locks, roster, warnings, manualEdits, slotsByDate, specialtyTargets, complianceRules], () => {
+watch([year, month, holidays, staff, shiftDefs, constraints, leaves, locks, roster, warnings, manualEdits, slotsByDate, specialtyTargets, complianceRules, deptRules, slotsArchive], () => {
   saveState('year', year.value)
   saveState('month', month.value)
   saveState('holidays', holidays.value)
@@ -262,6 +299,8 @@ watch([year, month, holidays, staff, shiftDefs, constraints, leaves, locks, rost
   saveState('slotsByDate', slotsByDate.value)
   saveState('specialtyTargets', specialtyTargets.value)
   saveState('complianceRules', complianceRules.value)
+  saveState('deptRules', deptRules.value)
+  saveState('slotsArchive', slotsArchive.value)
 }, { deep: true })
 
 
@@ -309,8 +348,17 @@ watch(locks, () => {
   syncLocksToSlots()
 }, { deep: true, immediate: true })
 
-watch([year, month, holidays], () => {
-  // 年月或假日改變時重置需求 Slot 矩陣，並連動人工指定班別
+watch([year, month], () => {
+  // 切換年月：該月已有存檔就載回，沒有才依開班預設產生新的 Slot 矩陣
+  const saved = slotsArchive.value[monthKey(year.value, month.value)]
+  slotsByDate.value = saved
+    ? JSON.parse(JSON.stringify(saved))
+    : generateDefaultSlots(year.value, month.value, holidays.value, shiftDefs.value)
+  syncLocksToSlots()
+})
+
+watch(holidays, () => {
+  // 假日改變時重置當月需求 Slot 矩陣，並連動人工指定班別
   slotsByDate.value = generateDefaultSlots(year.value, month.value, holidays.value, shiftDefs.value)
   syncLocksToSlots()
 })
@@ -359,6 +407,16 @@ function handleRenameShiftCode({ oldCode, newCode }) {
   })
   slotsByDate.value = updatedSlots
 
+  const updatedArchive = JSON.parse(JSON.stringify(slotsArchive.value || {}))
+  Object.values(updatedArchive).forEach(monthSlots => {
+    Object.values(monthSlots || {}).forEach(daySlots => {
+      (daySlots || []).forEach(slot => {
+        if (slot.shiftCode === oldCode) slot.shiftCode = newCode
+      })
+    })
+  })
+  slotsArchive.value = updatedArchive
+
   locks.value = locks.value.map(l => (l.shiftCode === oldCode ? { ...l, shiftCode: newCode } : l))
 
   const updatedRoster = JSON.parse(JSON.stringify(roster.value || {}))
@@ -403,10 +461,12 @@ function handleBackupJSON() {
     staff: staff.value,
     shiftDefs: shiftDefs.value,
     constraints: constraints.value,
+    deptRules: deptRules.value,
     leaves: leaves.value,
     locks: locks.value,
     roster: roster.value,
     slotsByDate: slotsByDate.value,
+    slotsArchive: slotsArchive.value,
     manualEdits: manualEdits.value
   })
 }
@@ -422,9 +482,11 @@ function handleLoadBackup(event) {
     if (data.staff) staff.value = data.staff
     if (data.shiftDefs) shiftDefs.value = normalizeShiftDefs(data.shiftDefs, { legacy: true })
     if (data.constraints) constraints.value = data.constraints
+    if (data.deptRules) deptRules.value = normalizeDeptRules(data.deptRules)
     if (data.leaves) leaves.value = data.leaves
     if (data.locks) locks.value = data.locks
     if (data.roster) roster.value = data.roster
+    if (data.slotsArchive) slotsArchive.value = data.slotsArchive
     if (data.slotsByDate) slotsByDate.value = data.slotsByDate
     if (data.manualEdits) manualEdits.value = data.manualEdits
   })
