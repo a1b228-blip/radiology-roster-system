@@ -71,6 +71,67 @@ export function generateDefaultSlots(year, month, holidays = [], customShiftDefs
 }
 
 /**
+ * 班別的開班條件摘要（代號 ➜ 開班星期｜專長門檻｜資深帶導）
+ * 用來判斷班別設定改了之後，哪些班別的班格需要重新同步
+ */
+export function getOpeningSignature(shiftDefs) {
+  const signature = {}
+  Object.entries(shiftDefs || {}).forEach(([code, def]) => {
+    signature[code] = `${def.applicableDays ?? ''}|${def.modKey || ''}|${def.needsSenior ? 1 : 0}`
+  })
+  return signature
+}
+
+/**
+ * 班別設定變更後，把指定班別的班格同步成最新的開班條件，不動已選班的人：
+ * - 依設定該開而還沒開的班格 ➜ 補上
+ * - 依設定不該開、且沒有人選的自動班格 ➜ 移除（有人選的保留；主管手動加開的班格不動）
+ * - 仍該開的班格 ➜ 更新專長門檻與資深帶導條件
+ */
+export function syncSlotsWithShiftDefs(slotsByDate, year, month, holidays, shiftDefs, changedCodes) {
+  const defaults = generateDefaultSlots(year, month, holidays, shiftDefs)
+  const codes = new Set(changedCodes)
+  const isManualSlot = (slot) => /_\d{13}$/.test(String(slot.id))
+  const result = {}
+  let added = 0
+  let removed = 0
+  let keptAssigned = 0
+
+  Object.keys(defaults).forEach(dateStr => {
+    const defaultByCode = {}
+    defaults[dateStr].forEach(s => { defaultByCode[s.shiftCode] = s })
+
+    const daySlots = []
+    ;((slotsByDate && slotsByDate[dateStr]) || []).forEach(slot => {
+      if (!codes.has(slot.shiftCode) || isManualSlot(slot)) {
+        daySlots.push(slot)
+        return
+      }
+      const def = defaultByCode[slot.shiftCode]
+      if (def) {
+        daySlots.push({ ...slot, requiredSkill: def.requiredSkill, minLevel: def.minLevel })
+      } else if ((slot.assignedStaffIds || []).length > 0) {
+        daySlots.push(slot)
+        keptAssigned++
+      } else {
+        removed++
+      }
+    })
+
+    defaults[dateStr].forEach(def => {
+      if (codes.has(def.shiftCode) && !daySlots.some(s => s.shiftCode === def.shiftCode)) {
+        daySlots.push(def)
+        added++
+      }
+    })
+
+    result[dateStr] = daySlots
+  })
+
+  return { slots: result, added, removed, keptAssigned }
+}
+
+/**
  * 即時驗證人員選班合法性
  */
 export function validateBidding({

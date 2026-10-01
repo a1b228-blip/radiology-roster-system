@@ -197,7 +197,7 @@ import { DEFAULT_STAFF, SHIFT_DEFS, DEFAULT_COMPLIANCE_RULES, DEFAULT_SPECIALTY_
 import { solveRoster } from './core/solver.js'
 import { exportRosterToExcel } from './core/exporter.js'
 import { loadState, saveState, exportBackupJSON, importBackupJSON } from './core/storage.js'
-import { generateDefaultSlots } from './core/biddingEngine.js'
+import { generateDefaultSlots, getOpeningSignature, syncSlotsWithShiftDefs } from './core/biddingEngine.js'
 import { normalizeShiftDefs, getShiftInterval } from './core/shiftTime.js'
 import { normalizeDeptRules } from './core/deptRules.js'
 
@@ -353,20 +353,59 @@ watch(locks, () => {
   syncLocksToSlots()
 }, { deep: true, immediate: true })
 
+// 各月份班格產生時所依據的開班條件：班別設定改了之後，用來找出哪些班別的班格要同步
+const slotSignatures = ref(loadState('slotSignatures', {}))
+
+function markSlotsSynced() {
+  slotSignatures.value = { ...slotSignatures.value, [monthKey(year.value, month.value)]: getOpeningSignature(shiftDefs.value) }
+  saveState('slotSignatures', slotSignatures.value)
+}
+
+// 讓目前月份的班格跟上「班別與時間段設定」的開班條件（只動有變更的班別，不動已選班的人）
+function syncSlotsToShiftDefs() {
+  if (!slotsByDate.value) return
+  const current = getOpeningSignature(shiftDefs.value)
+  const previous = slotSignatures.value[monthKey(year.value, month.value)]
+  const existingCodes = Object.values(slotsByDate.value).flatMap(daySlots => (daySlots || []).map(s => s.shiftCode))
+  // 沒有紀錄代表這個月的班格是舊版產生的，全部班別都核對一次
+  const changedCodes = previous
+    ? [...new Set([...Object.keys(current), ...Object.keys(previous)])].filter(code => current[code] !== previous[code])
+    : [...new Set([...Object.keys(current), ...existingCodes])]
+
+  if (changedCodes.length > 0) {
+    const synced = syncSlotsWithShiftDefs(slotsByDate.value, year.value, month.value, holidays.value, shiftDefs.value, changedCodes)
+    if (JSON.stringify(synced.slots) !== JSON.stringify(slotsByDate.value)) slotsByDate.value = synced.slots
+    syncLocksToSlots()
+  }
+  markSlotsSynced()
+}
+
 watch([year, month], () => {
   // 切換年月：該月已有存檔就載回，沒有才依開班預設產生新的 Slot 矩陣
   const saved = slotsArchive.value[monthKey(year.value, month.value)]
-  slotsByDate.value = saved
-    ? JSON.parse(JSON.stringify(saved))
-    : generateDefaultSlots(year.value, month.value, holidays.value, shiftDefs.value)
+  if (saved) {
+    slotsByDate.value = JSON.parse(JSON.stringify(saved))
+    syncSlotsToShiftDefs()
+  } else {
+    slotsByDate.value = generateDefaultSlots(year.value, month.value, holidays.value, shiftDefs.value)
+    markSlotsSynced()
+  }
   syncLocksToSlots()
 })
 
 watch(holidays, () => {
   // 假日改變時重置當月需求 Slot 矩陣，並連動人工指定班別
   slotsByDate.value = generateDefaultSlots(year.value, month.value, holidays.value, shiftDefs.value)
+  markSlotsSynced()
   syncLocksToSlots()
 })
+
+// 班別設定的開班條件一改，目前月份的班格立即同步
+watch(shiftDefs, () => {
+  syncSlotsToShiftDefs()
+}, { deep: true })
+
+syncSlotsToShiftDefs()
 
 
 watch(fontScale, (newVal) => {

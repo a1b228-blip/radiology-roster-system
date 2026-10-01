@@ -96,11 +96,11 @@ const RAW_SHIFT_DEFS = {
   "C2": { "name": "C2支援班", "time": "08:30 - 12:30", "restEnd": "16:30", "breakMinutes": 0, "room": "C2支援", "color": "#16a34a", "needsSenior": false, "targetRole": "放射師", "modKey": "angio", "applicableDays": "6" },
   "M1": { "name": "骨密牙科", "time": "08:30 - 17:00", "breakMinutes": 30, "room": "骨密牙科攝影室", "color": "#ea580c", "needsSenior": false, "targetRole": "放射師", "modKey": "bmd", "applicableDays": "" },
 
-  // ===== 2. 🩺 護理人員班別（不自動預設開班） =====
-  "96": { "name": "96白班", "time": "09:00 - 18:00", "breakMinutes": 60, "room": "護理", "color": "#be123c", "needsSenior": false, "targetRole": "護理人員", "modKey": null, "applicableDays": "" },
+  // ===== 2. 🩺 護理人員班別 =====
+  "96": { "name": "96白班", "time": "09:00 - 18:00", "breakMinutes": 60, "room": "護理", "color": "#be123c", "needsSenior": false, "targetRole": "護理人員", "modKey": null, "applicableDays": "1,2,3,4,5" },
   "CO（n）": { "name": "護理常規日班", "time": "08:00 - 17:00", "breakMinutes": 60, "room": "護理", "color": "#e11d48", "needsSenior": false, "targetRole": "護理人員", "modKey": null, "applicableDays": "" },
-  "D1(n)": { "name": "護理半天班", "time": "08:00 - 12:00", "restEnd": "16:30", "breakMinutes": 0, "room": "護理", "color": "#f43f5e", "needsSenior": false, "targetRole": "護理人員", "modKey": null, "applicableDays": "" },
-  "e(n)": { "name": "護理常規晚班", "time": "13:00 - 21:30", "breakMinutes": 30, "room": "護理", "color": "#b45309", "needsSenior": false, "targetRole": "護理人員", "modKey": null, "applicableDays": "" },
+  "D1(n)": { "name": "護理半天班", "time": "08:00 - 12:00", "restEnd": "16:30", "breakMinutes": 0, "room": "護理", "color": "#f43f5e", "needsSenior": false, "targetRole": "護理人員", "modKey": null, "applicableDays": "6" },
+  "e(n)": { "name": "護理常規晚班", "time": "13:00 - 21:30", "breakMinutes": 30, "room": "護理", "color": "#b45309", "needsSenior": false, "targetRole": "護理人員", "modKey": null, "applicableDays": "1,2,3,4,5" },
 
   // ===== 3. 📝 書記班別 =====
   "83（行）": { "name": "櫃檯行政日班", "time": "08:00 - 17:00", "breakMinutes": 60, "room": "登記櫃檯", "color": "#475569", "needsSenior": false, "targetRole": "書記", "modKey": null, "applicableDays": "1,2,3,4,5" },
