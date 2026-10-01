@@ -43,7 +43,11 @@
               <th>班別代號</th>
               <th>班別名稱</th>
               <th>適用職類</th>
-              <th>出勤時間段</th>
+              <th>上班時間</th>
+              <th>下班時間</th>
+              <th title="班內休息時間，不計入工時，也不影響班與班之間的休息間隔檢查。">班內休息<br /><span style="font-weight: 500; font-size: 0.7rem;">(分鐘，不計工時)</span></th>
+              <th>實際工時</th>
+              <th title="科內規定：休息間隔從這個時間起算。留空＝以實際下班時間起算。">休息起算時間<br /><span style="font-weight: 500; font-size: 0.7rem;">(科內規定，留空＝下班時間)</span></th>
               <th>開班預設適用星期</th>
               <th>對應檢查室 / 區域</th>
 
@@ -54,7 +58,7 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="info in filteredShiftsList" :key="info.codeKey">
+            <tr v-for="info in filteredShiftsList" :key="info.originalCode">
               <td>
                 <input v-model="info.codeKey" @change="updateCode(info.originalCode, info.codeKey)" style="width: 80px; text-align: center; border: 1px solid #cbd5e1; border-radius: 4px; font-weight: 700;" />
               </td>
@@ -70,7 +74,23 @@
                 </select>
               </td>
               <td>
-                <input v-model="info.time" @change="emitChange" style="width: 120px; text-align: center; border: 1px solid #cbd5e1; border-radius: 4px;" />
+                <input type="time" v-model="info.start" @change="emitChange" class="time-input" />
+              </td>
+              <td style="white-space: nowrap;">
+                <input type="time" v-model="info.end" @change="emitChange" class="time-input" />
+                <span v-if="getInterval(info)?.crossesMidnight" class="next-day-tag">隔日</span>
+              </td>
+              <td>
+                <input type="number" v-model.number="info.breakMinutes" @change="emitChange" min="0" max="240" step="5" class="break-input" :disabled="!getInterval(info)" />
+              </td>
+              <td style="white-space: nowrap;">
+                <span v-if="getInterval(info)" style="font-weight: 700; color: #0d5c53;">{{ formatHours(info) }} h</span>
+                <span v-else-if="info.start || info.end" class="time-warning">⚠️ 時間未填完整</span>
+                <span v-else-if="info.targetRole" class="time-warning">⚠️ 未設定時間</span>
+                <span v-else style="color: #94a3b8;">不計時</span>
+              </td>
+              <td>
+                <input type="time" v-model="info.restEnd" @change="emitChange" class="time-input" :disabled="!getInterval(info)" />
               </td>
               <td>
                 <select v-model="info.applicableDays" @change="emitChange" style="padding: 0.2rem 0.4rem; border: 1px solid #cbd5e1; border-radius: 4px; font-weight: 600; background: #f8fafc; color: #0284c7;">
@@ -110,13 +130,55 @@
         </table>
       </div>
     </div>
+
+    <!-- 接班檢核預覽：直接用上方設定的時間即時計算，與同仁選班時的判定完全相同 -->
+    <div class="card card-glass" style="margin-top: 1rem;">
+      <div class="card-title" style="flex-wrap: wrap; gap: 10px;">
+        <ShieldCheck :size="20" />
+        <span style="font-weight: 700; font-size: 1.1rem; color: #0d5c53;">接班檢核預覽</span>
+        <span style="font-size: 0.8rem; color: #64748b; font-weight: 500;">依上方時間即時計算，同仁選班時的 {{ MIN_REST_HOURS }} 小時休息檢查用的就是這份結果</span>
+      </div>
+
+      <div style="display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; margin: 0.8rem 0;">
+        <label style="font-size: 0.85rem; font-weight: 600;">前一日上：</label>
+        <select v-model="previewCode" style="padding: 0.3rem 0.5rem; border: 1px solid #cbd5e1; border-radius: 4px; font-weight: 600;">
+          <option v-for="info in timedShiftsList" :key="info.originalCode" :value="info.originalCode">
+            {{ info.originalCode }} ({{ info.name }}) {{ info.start }} - {{ info.end }}
+          </option>
+        </select>
+        <span v-if="previewInfo" style="font-size: 0.85rem; color: #475569;">
+          休息自 <strong>{{ previewRestStart }}</strong> 起算
+          <span v-if="previewUsesDeptRule" class="dept-tag">科內規定</span>
+        </span>
+      </div>
+
+      <div v-if="previewInfo" class="preview-grid">
+        <div
+          v-for="row in previewRows"
+          :key="row.code"
+          class="preview-chip"
+          :class="row.ok ? 'ok' : 'blocked'"
+          :title="row.title"
+        >
+          <div class="preview-chip-head">
+            <span>{{ row.ok ? '✅' : '⛔' }} {{ row.code }}</span>
+            <span>{{ row.gapText }}</span>
+          </div>
+          <div class="preview-chip-sub">{{ row.name }}｜{{ row.start }} 上班<span v-if="row.byDeptRule">｜科內規定</span></div>
+        </div>
+      </div>
+      <p style="font-size: 0.8rem; color: #64748b; margin-top: 0.6rem;">
+        ✅ 隔天可接　⛔ 隔天不可接（休息未滿 {{ MIN_REST_HOURS }} 小時）。特休、公假等沒有出勤時間的假別不受休息間隔限制，故不列出。
+      </p>
+    </div>
   </div>
 </template>
 
 <script setup>
 import { ref, computed, watch } from 'vue'
-import { Clock, Plus, RotateCcw, Save } from 'lucide-vue-next'
+import { Clock, Plus, RotateCcw, Save, ShieldCheck } from 'lucide-vue-next'
 import { SHIFT_DEFS, APPLICABLE_DAYS_OPTIONS } from '../core/types.js'
+import { getShiftInterval, getShiftHours, getBreakMinutes, getRestGap, formatClock, formatTimeRange, MIN_REST_HOURS } from '../core/shiftTime.js'
 
 import { saveState } from '../core/storage.js'
 
@@ -124,7 +186,7 @@ const props = defineProps({
   shiftDefs: { type: Object, default: () => ({}) }
 })
 
-const emit = defineEmits(['update:shiftDefs'])
+const emit = defineEmits(['update:shiftDefs', 'rename-code'])
 
 const shifts = ref({})
 const currentRoleFilter = ref('ALL')
@@ -147,7 +209,7 @@ watch(() => props.shiftDefs, (newVal) => {
 
 const rolePriority = { '放射師': 1, '護理人員': 2, '書記': 3 }
 
-const filteredShiftsList = computed(() => {
+const filteredAllSorted = computed(() => {
   const list = Object.values(shifts.value)
 
   list.sort((a, b) => {
@@ -155,6 +217,11 @@ const filteredShiftsList = computed(() => {
     const pB = rolePriority[b.targetRole] || 4
     return pA - pB
   })
+  return list
+})
+
+const filteredShiftsList = computed(() => {
+  const list = filteredAllSorted.value
 
   if (currentRoleFilter.value === 'ALL') return list
   if (currentRoleFilter.value === 'COMMON') return list.filter(info => !info.targetRole)
@@ -167,24 +234,85 @@ function getRoleShiftCount(roleKey) {
   return Object.values(shifts.value).filter(s => s.targetRole === roleKey).length
 }
 
+function getInterval(info) {
+  return getShiftInterval(info)
+}
+
+function formatHours(info) {
+  return Math.round(getShiftHours(info) * 10) / 10
+}
+
+// ===== 接班檢核預覽 =====
+const previewCode = ref('D')
+
+const timedShiftsList = computed(() => filteredAllSorted.value.filter(info => getShiftInterval(info)))
+
+const previewInfo = computed(() => {
+  const list = timedShiftsList.value
+  return list.find(info => info.originalCode === previewCode.value) || list[0] || null
+})
+
+const previewRestStart = computed(() => {
+  const iv = getShiftInterval(previewInfo.value)
+  return iv ? formatClock(iv.restEndHour) : ''
+})
+
+const previewUsesDeptRule = computed(() => {
+  const iv = getShiftInterval(previewInfo.value)
+  return !!iv && iv.restEndHour > iv.endHour
+})
+
+const previewRows = computed(() => {
+  const prev = previewInfo.value
+  if (!prev) return []
+  return timedShiftsList.value.map(next => {
+    const rest = getRestGap(prev, next)
+    const gapText = rest.gap < 0 ? '時段重疊' : `間隔 ${Math.round(rest.gap * 10) / 10} h`
+    return {
+      code: next.originalCode,
+      name: next.name,
+      start: next.start,
+      ok: rest.ok,
+      byDeptRule: rest.byDeptRule,
+      gapText,
+      title: `前一日 ${prev.originalCode} ➜ 隔日 ${next.originalCode}：${gapText}${rest.byDeptRule ? `（實際間隔 ${Math.round(rest.actualGap * 10) / 10} h，依科內規定起算）` : ''}`
+    }
+  })
+})
+
 function updateCode(oldCode, newCode) {
-  if (!newCode || oldCode === newCode) return
-  if (shifts.value[newCode]) {
-    alert('班別代號已被使用，請輸入獨立代號。')
+  const item = shifts.value[oldCode]
+  const trimmed = String(newCode || '').trim()
+  if (!trimmed || oldCode === trimmed) {
+    item.codeKey = oldCode
     return
   }
-  const item = shifts.value[oldCode]
+  if (shifts.value[trimmed]) {
+    alert('班別代號已被使用，請輸入獨立代號。')
+    item.codeKey = oldCode
+    return
+  }
   delete shifts.value[oldCode]
-  item.originalCode = newCode
-  shifts.value[newCode] = item
+  item.codeKey = trimmed
+  item.originalCode = trimmed
+  shifts.value[trimmed] = item
+  if (previewCode.value === oldCode) previewCode.value = trimmed
   emitChange()
+  // 已開班格子、人工指定與班表內的舊代號一併改名
+  emit('rename-code', { oldCode, newCode: trimmed })
 }
 
 function emitChange() {
   const cleanObj = {}
   Object.values(shifts.value).forEach(v => {
     const { codeKey, originalCode, ...rest } = v
-    cleanObj[codeKey] = rest
+    // 顯示用時間文字一律由上下班時間產生，確保全系統只有一份時間
+    rest.start = rest.start || ''
+    rest.end = rest.end || ''
+    rest.restEnd = getShiftInterval(rest) ? (rest.restEnd || '') : ''
+    rest.breakMinutes = getBreakMinutes(rest)
+    rest.time = formatTimeRange(rest.start, rest.end)
+    cleanObj[originalCode] = rest
   })
   emit('update:shiftDefs', cleanObj)
   saveState('shiftDefs', cleanObj) // 即時固化儲存至 LocalStorage
@@ -203,12 +331,17 @@ function addShift() {
     codeKey: newCode,
     originalCode: newCode,
     name: '自訂新班別',
+    start: '08:00',
+    end: '16:30',
+    restEnd: '',
+    breakMinutes: 30,
     time: '08:00 - 16:30',
     room: '檢查室',
     color: '#0d5c53',
     needsSenior: false,
     targetRole: defaultRole,
-    modKey: null
+    modKey: null,
+    applicableDays: ''
   }
   emitChange()
 }
@@ -230,6 +363,86 @@ function resetToExcelShiftDefs() {
 </script>
 
 <style scoped>
+.time-input {
+  width: 105px;
+  text-align: center;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  padding: 0.15rem 0.2rem;
+  font-weight: 600;
+}
+
+.break-input {
+  width: 62px;
+  text-align: center;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  padding: 0.15rem 0.2rem;
+  font-weight: 600;
+}
+
+.break-input:disabled,
+.time-input:disabled {
+  background: #f1f5f9;
+  color: #94a3b8;
+}
+
+.next-day-tag,
+.dept-tag {
+  display: inline-block;
+  margin-left: 4px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.time-warning {
+  color: #dc2626;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.preview-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 8px;
+}
+
+.preview-chip {
+  border-radius: 6px;
+  padding: 6px 10px;
+  border: 1px solid;
+  font-size: 0.8rem;
+}
+
+.preview-chip.ok {
+  background: #f0fdf4;
+  border-color: #86efac;
+  color: #166534;
+}
+
+.preview-chip.blocked {
+  background: #fef2f2;
+  border-color: #fca5a5;
+  color: #991b1b;
+}
+
+.preview-chip-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-weight: 700;
+}
+
+.preview-chip-sub {
+  font-size: 0.72rem;
+  opacity: 0.85;
+  margin-top: 2px;
+}
+
 .role-filter-btn {
   border: 1px solid #cbd5e1;
   background: white;

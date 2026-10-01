@@ -27,7 +27,7 @@
         <div>
           <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.3rem;">指定班別</label>
           <select v-model="newLock.shiftCode" style="width: 100%; padding: 0.5rem; border: 1px solid #cbd5e1; border-radius: 6px;">
-            <option v-for="(info, code) in SHIFT_DEFS" :key="code" :value="code">{{ code }} ({{ info.name }})</option>
+            <option v-for="(info, code) in shiftDefs" :key="code" :value="code">{{ code }} ({{ info.name }})</option>
           </select>
         </div>
         <div>
@@ -82,12 +82,12 @@
 <script setup>
 import { ref } from 'vue'
 import { Lock, ListCheck, Save } from 'lucide-vue-next'
-import { SHIFT_DEFS } from '../core/types.js'
 
 const props = defineProps({
   staff: { type: Array, default: () => [] },
   locks: { type: Array, default: () => [] },
-  slotsByDate: { type: Object, default: () => ({}) }
+  slotsByDate: { type: Object, default: () => ({}) },
+  shiftDefs: { type: Object, default: () => ({}) }
 })
 
 const emit = defineEmits(['update:locks'])
@@ -124,7 +124,7 @@ function addLock() {
       staffList: props.staff,
       leaves: props.locks,
       constraints: { enableRestGap: true, restGapHours: 11 },
-      customShiftDefs: SHIFT_DEFS
+      customShiftDefs: props.shiftDefs
     })
 
     if (!val.valid) {

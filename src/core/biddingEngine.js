@@ -4,6 +4,7 @@
  */
 
 import { SHIFT_DEFS } from './types.js'
+import { getShiftInterval, getRestGap, formatClock, MIN_REST_HOURS } from './shiftTime.js'
 
 /**
  * 根據月份與假日，產生預設的全月工作點班別 Slot 矩陣
@@ -130,167 +131,63 @@ export function validateBidding({
     return { valid: false, error: `${staff.name} 設定為「不可上夜班/新進人員」，無法選擇急診大小夜班` }
   }
 
-  // 6. 勞基法 11 小時班別休息間隔與 3 大硬性禁止接班規範 (死鎖驗證)
-  const prevDate = getPrevDateStr(dateStr)
-  const nextDate = getNextDateStr(dateStr)
-  const defsToUse = customShiftDefs || SHIFT_DEFS
+  // 6. 勞基法 11 小時班別休息間隔（雙向檢查前一日與後一日）
+  //    時間一律取自班別設定（shiftTime.js），假別沒有出勤時間不參與檢查
+  if (constraints.enableRestGap !== false) {
+    const prevDate = getPrevDateStr(dateStr)
+    const nextDate = getNextDateStr(dateStr)
+    const defsToUse = customShiftDefs || SHIFT_DEFS
+    const getDef = (code) => defsToUse[code] || SHIFT_DEFS[code]
 
-  function getShiftTimes(dStr, code) {
-    if (!dStr || !code) return null
-    const dateObj = parseStandardDate(dStr)
-    if (!dateObj) return null
-    const dateBase = dateObj.getTime()
-
-    const def = defsToUse[code] || SHIFT_DEFS[code]
-    const { startHour, endHour } = parseShiftTime(def?.time, code)
-
-    return {
-      startMs: dateBase + startHour * 3600 * 1000,
-      endMs: dateBase + endHour * 3600 * 1000
-    }
-  }
-
-  const currentTimes = getShiftTimes(dateStr, slot.shiftCode)
-
-  if (currentTimes) {
-    // A. 前一日班間休息檢查 (掃描 slotsByDate + leaves)
-    const prevShifts = []
-    if (prevDate && slotsByDate && slotsByDate[prevDate]) {
-      for (const pSlot of slotsByDate[prevDate]) {
-        if (Array.isArray(pSlot.assignedStaffIds) && pSlot.assignedStaffIds.includes(staff.id)) {
-          prevShifts.push(pSlot.shiftCode)
+    // 蒐集同仁在指定日期已排的班別 (掃描 slotsByDate + leaves)
+    const collectShifts = (dStr) => {
+      const codes = []
+      if (dStr && slotsByDate && slotsByDate[dStr]) {
+        for (const s of slotsByDate[dStr]) {
+          if (Array.isArray(s.assignedStaffIds) && s.assignedStaffIds.includes(staff.id)) codes.push(s.shiftCode)
         }
       }
-    }
-    if (prevDate && Array.isArray(leaves)) {
-      for (const l of leaves) {
-        if (l.staffId === staff.id && (l.date === prevDate || l.start === prevDate) && l.shiftCode) {
-          prevShifts.push(l.shiftCode)
+      if (dStr && Array.isArray(leaves)) {
+        for (const l of leaves) {
+          if (l.staffId === staff.id && (l.date === dStr || l.start === dStr) && l.shiftCode) codes.push(l.shiftCode)
         }
       }
+      return codes
     }
 
-    for (const pCode of prevShifts) {
-      const prevTimes = getShiftTimes(prevDate, pCode)
-      if (prevTimes) {
-        const gapHours = (currentTimes.startMs - prevTimes.endMs) / (3600 * 1000)
-        const prevShiftName = getShiftName(pCode, defsToUse)
-        const targetShiftName = getShiftName(slot.shiftCode, defsToUse)
+    const restGapError = (earlierCode, earlierDate, laterCode, laterDate, rest) => {
+      const earlierName = getShiftName(earlierCode, defsToUse)
+      const laterName = getShiftName(laterCode, defsToUse)
+      const earlierIv = getShiftInterval(getDef(earlierCode))
+      const laterIv = getShiftInterval(getDef(laterCode))
+      const head = `同仁【${staff.name}】${earlierDate} [${earlierName}] ➜ ${laterDate} [${laterName}]`
+      if (rest.byDeptRule) {
+        return `⛔ 禁止選填（科內規定）：${head}，[${earlierName}] 依科內規定視同 ${formatClock(earlierIv.restEndHour)} 下班起算休息，至 ${formatClock(laterIv.startHour)} 上班僅 ${rest.gap.toFixed(1)} 小時，未滿 ${MIN_REST_HOURS} 小時！`
+      }
+      if (rest.gap < 0) {
+        return `⛔ 違法禁止選填（勞基法第 34 條休息滿 ${MIN_REST_HOURS}h）：${head}，${formatClock(earlierIv.endHour)} 下班前即須於 ${formatClock(laterIv.startHour)} 上班，兩班時段重疊！`
+      }
+      return `⛔ 違法禁止選填（勞基法第 34 條休息滿 ${MIN_REST_HOURS}h）：${head}，${formatClock(earlierIv.endHour)} 下班至 ${formatClock(laterIv.startHour)} 上班，兩班間隔僅 ${rest.gap.toFixed(1)} 小時，低於法定 ${MIN_REST_HOURS} 小時限制！`
+    }
 
-        const pCodeLower = String(pCode || '').toLowerCase().trim()
-        const targetCodeLower = String(slot.shiftCode || '').toLowerCase().trim()
-
-        const rule1PrevShiftsLower = ['d', 'e', 'd(us)', 'd1', 't', 'c9', 'd(m)', 'e(m)', 'c8', 'c2(m)', 'c2', 'm', 'sat_d', 'd_cct', 'd_ct', 'd_mri', 'd_us', 'd_angio', 'd_mammo']
-        const rule1NightShiftsLower = ['n', 'g_night', 'er_deep', 'er_night', 'e_night']
-
-        // ===== 隱性排班硬規範 1：D, E, d(US), d1, T, C9, d(m), e(m), C8, C2(m), C2, M 隔天禁接大夜班 N =====
-        if (rule1PrevShiftsLower.includes(pCodeLower) && rule1NightShiftsLower.includes(targetCodeLower)) {
-          return {
-            valid: false,
-            error: `⛔ 違法禁止選填（硬性規範一）：同仁【${staff.name}】於前一日 (${prevDate}) 出勤 [${prevShiftName}]，於 ${dateStr} 禁止選擇 [${targetShiftName}]（大夜班 00:00 上班），兩班間隔僅 ${gapHours.toFixed(1)} 小時，低於法定 11 小時限制！`
-          }
-        }
-
-        // ===== 隱性排班硬規範 2：e(m) (MRI晚班 21:30下班) 隔天禁接 D, d(US), d1, T, d(m) =====
-        const rule2EMShiftsLower = ['e(m)', 'e(mri)', 'em']
-        const rule2DayShiftsLower = ['d', 'd(us)', 'd1', 't', 'd(m)', 'd_cct', 'sat_d', '83（行）', 'co（n）', 'd_ct', 'd_mri', 'd_us']
-        if (rule2EMShiftsLower.includes(pCodeLower) && rule2DayShiftsLower.includes(targetCodeLower)) {
-          return {
-            valid: false,
-            error: `⛔ 違法禁止選填（硬性規範二）：同仁【${staff.name}】於前一日 (${prevDate}) 出勤 [${prevShiftName}]（21:30 下班），於 ${dateStr} 禁止選擇 08:00 上班之日班 [${targetShiftName}]，兩班間隔僅 ${gapHours.toFixed(1)} 小時，低於法定 11 小時限制！`
-          }
-        }
-
-        // ===== 隱性排班硬規範 3：E (一般小夜班 00:30下班) 隔天禁排 D, N, d(US), d1, T, C9, d(m), e(m), C8, C2(m), C2, M =====
-        const rule3EShiftsLower = ['e', 'e_night', 'er_night', 'e(er)']
-        const rule3ForbiddenNextLower = ['d', 'n', 'd(us)', 'd1', 't', 'c9', 'd(m)', 'e(m)', 'c8', 'c2(m)', 'c2', 'm', 'd_cct', 'sat_d', 'g_night', 'er_deep']
-        if (rule3EShiftsLower.includes(pCodeLower) && rule3ForbiddenNextLower.includes(targetCodeLower)) {
-          return {
-            valid: false,
-            error: `⛔ 違法禁止選填（硬性規範三）：同仁【${staff.name}】於前一日 (${prevDate}) 出勤 [一般小夜班 (E)]（00:30 下班），於 ${dateStr} 禁止選擇 [${targetShiftName}]，兩班間隔僅 ${gapHours.toFixed(1)} 小時，低於法定 11 小時限制！`
-          }
-        }
-
-        // 通用 11 小時休息間隔阻擋
-        if (constraints.enableRestGap !== false && gapHours < 11.0) {
-          return {
-            valid: false,
-            error: `⛔ 違法禁止選填（勞基法第 34 條休息滿 11h）：同仁【${staff.name}】於前一日 (${prevDate}) 出勤 [${prevShiftName}]，於 ${dateStr} 欲選 [${targetShiftName}]，兩班間隔僅 ${gapHours.toFixed(1)} 小時，低於法定 11 小時限制！`
-          }
-        }
+    // A. 前一日已排班別 ➜ 今日欲選班別
+    for (const pCode of collectShifts(prevDate)) {
+      const rest = getRestGap(getDef(pCode), getDef(slot.shiftCode))
+      if (rest && !rest.ok) {
+        return { valid: false, error: restGapError(pCode, prevDate, slot.shiftCode, dateStr, rest), restGap: { direction: 'prev', otherCode: pCode, gap: rest.gap, byDeptRule: rest.byDeptRule } }
       }
     }
 
-    // B. 後一日班間休息檢查 (掃描 slotsByDate + leaves)
-    const nextShifts = []
-    if (nextDate && slotsByDate && slotsByDate[nextDate]) {
-      for (const nSlot of slotsByDate[nextDate]) {
-        if (Array.isArray(nSlot.assignedStaffIds) && nSlot.assignedStaffIds.includes(staff.id)) {
-          nextShifts.push(nSlot.shiftCode)
-        }
-      }
-    }
-    if (nextDate && Array.isArray(leaves)) {
-      for (const l of leaves) {
-        if (l.staffId === staff.id && (l.date === nextDate || l.start === nextDate) && l.shiftCode) {
-          nextShifts.push(l.shiftCode)
-        }
-      }
-    }
-
-    for (const nCode of nextShifts) {
-      const nextTimes = getShiftTimes(nextDate, nCode)
-      if (nextTimes) {
-        const gapHours = (nextTimes.startMs - currentTimes.endMs) / (3600 * 1000)
-        const nextShiftName = getShiftName(nCode, defsToUse)
-        const targetShiftName = getShiftName(slot.shiftCode, defsToUse)
-
-        const nCodeLower = String(nCode || '').toLowerCase().trim()
-        const targetCodeLower = String(slot.shiftCode || '').toLowerCase().trim()
-
-        const rule1PrevShiftsLower = ['d', 'e', 'd(us)', 'd1', 't', 'c9', 'd(m)', 'e(m)', 'c8', 'c2(m)', 'c2', 'm', 'sat_d', 'd_cct', 'd_ct', 'd_mri', 'd_us', 'd_angio', 'd_mammo']
-        const rule1NightShiftsLower = ['n', 'g_night', 'er_deep', 'er_night', 'e_night']
-        const rule2EMShiftsLower = ['e(m)', 'e(mri)', 'em']
-        const rule2DayShiftsLower = ['d', 'd(us)', 'd1', 't', 'd(m)', 'd_cct', 'sat_d', '83（行）', 'co（n）', 'd_ct', 'd_mri', 'd_us']
-        const rule3EShiftsLower = ['e', 'e_night', 'er_night', 'e(er)']
-        const rule3ForbiddenNextLower = ['d', 'n', 'd(us)', 'd1', 't', 'c9', 'd(m)', 'e(m)', 'c8', 'c2(m)', 'c2', 'm', 'd_cct', 'sat_d', 'g_night', 'er_deep']
-
-        // 雙向反向規範 1：欲選班別 隔天已知排了大夜班 N
-        if (rule1PrevShiftsLower.includes(targetCodeLower) && rule1NightShiftsLower.includes(nCodeLower)) {
-          return {
-            valid: false,
-            error: `⛔ 違法禁止選填（硬性規範一）：同仁【${staff.name}】在後一日 (${nextDate}) 已排 [${nextShiftName}]，於 ${dateStr} 選 [${targetShiftName}] 將導致兩班間隔僅 ${gapHours.toFixed(1)} 小時，低於法定 11 小時限制！`
-          }
-        }
-
-        // 雙向反向規範 2：欲選 e(m)，但後一日已有 08:00 日班
-        if (rule2EMShiftsLower.includes(targetCodeLower) && rule2DayShiftsLower.includes(nCodeLower)) {
-          return {
-            valid: false,
-            error: `⛔ 違法禁止選填（硬性規範二）：同仁【${staff.name}】在後一日 (${nextDate}) 已排 08:00 日班 [${nextShiftName}]，於 ${dateStr} 選 [MRI晚班 (e(m))]（21:30 下班）將導致兩班間隔僅 ${gapHours.toFixed(1)} 小時，低於法定 11 小時限制！`
-          }
-        }
-
-        // 雙向反向規範 3：欲選 E (小夜班)，但後一日已有指定班別
-        if (rule3EShiftsLower.includes(targetCodeLower) && rule3ForbiddenNextLower.includes(nCodeLower)) {
-          return {
-            valid: false,
-            error: `⛔ 違法禁止選填（硬性規範三）：同仁【${staff.name}】在後一日 (${nextDate}) 已排 [${nextShiftName}]，於 ${dateStr} 選 [一般小夜班 (E)]（00:30 下班）將導致兩班間隔僅 ${gapHours.toFixed(1)} 小時，低於法定 11 小時限制！`
-          }
-        }
-
-        // 通用 11 小時休息間隔阻擋
-        if (constraints.enableRestGap !== false && gapHours < 11.0) {
-          return {
-            valid: false,
-            error: `⛔ 違法禁止選填（勞基法第 34 條休息滿 11h）：同仁【${staff.name}】在後一日 (${nextDate}) 已排 [${nextShiftName}]，於 ${dateStr} 選 [${targetShiftName}] 將導致兩班間隔僅 ${gapHours.toFixed(1)} 小時，低於法定 11 小時限制！`
-          }
-        }
+    // B. 今日欲選班別 ➜ 後一日已排班別
+    for (const nCode of collectShifts(nextDate)) {
+      const rest = getRestGap(getDef(slot.shiftCode), getDef(nCode))
+      if (rest && !rest.ok) {
+        return { valid: false, error: restGapError(slot.shiftCode, dateStr, nCode, nextDate, rest), restGap: { direction: 'next', otherCode: nCode, gap: rest.gap, byDeptRule: rest.byDeptRule } }
       }
     }
   }
 
-  // 6. 資深/資淺搭檔警示
+  // 7. 資深/資淺搭檔警示
   if (constraints.enableSeniorPairing !== false && slot.minLevel === 'SeniorPairing') {
     const isSenior = ['主管', '資深'].includes(staff.level)
     const existingStaffIds = slot.assignedStaffIds.filter(id => id !== staff.id)
@@ -309,7 +206,7 @@ export function validateBidding({
 /**
  * 智慧自動填補缺額 (Auto Fill Unfilled Slots)
  */
-export function autoFillUnfilledSlots({ slotsByDate, staffList, leaves, constraints }) {
+export function autoFillUnfilledSlots({ slotsByDate, staffList, leaves, constraints, customShiftDefs = SHIFT_DEFS }) {
   const updatedSlots = JSON.parse(JSON.stringify(slotsByDate))
 
   const staffCounts = {}
@@ -337,7 +234,8 @@ export function autoFillUnfilledSlots({ slotsByDate, staffList, leaves, constrai
               slotsByDate: updatedSlots,
               staffList,
               leaves,
-              constraints
+              constraints,
+              customShiftDefs
             })
             return val.valid
           })
@@ -454,44 +352,3 @@ export function getShiftName(shiftCode, customShiftDefs = SHIFT_DEFS) {
   const def = (customShiftDefs && customShiftDefs[shiftCode]) || SHIFT_DEFS[shiftCode]
   return def ? `${def.name} (${shiftCode})` : shiftCode
 }
-
-export function parseShiftTime(timeStr, shiftCode) {
-  let startHour = 8.0
-  let endHour = 16.5
-
-  if (shiftCode === 'N' || shiftCode === 'G_NIGHT' || shiftCode === 'ER_DEEP') {
-    return { startHour: 0.0, endHour: 8.5 }
-  }
-  if (shiftCode === 'E' || shiftCode === 'E_NIGHT' || shiftCode === 'ER_NIGHT') {
-    return { startHour: 16.0, endHour: 24.5 }
-  }
-  if (shiftCode === 'CALL' || shiftCode === 'CALL_NURSE') {
-    return { startHour: 8.0, endHour: 32.0 }
-  }
-
-  if (timeStr && timeStr.includes('-')) {
-    const parts = timeStr.split('-').map(s => s.trim())
-    if (parts.length === 2) {
-      const parseH = (hStr) => {
-        const [h, m] = hStr.split(':').map(Number)
-        return (isNaN(h) ? 8 : h) + ((isNaN(m) ? 0 : m) / 60)
-      }
-      startHour = parseH(parts[0])
-      endHour = parseH(parts[1])
-      if (endHour <= startHour && endHour < 12) {
-        endHour += 24.0
-      }
-    }
-  }
-
-  // 關鍵修復：所有日白班別 (包含 SAT_D 週六門診、D1 半天班、C2 支援班等)
-  // 凡是日間班別接次日大夜班或夜班時，其下班時間基準至少以 16:30 (16.5h) 為準！
-  // 確保「8/1 預日班 (含 SAT_D) ➜ 8/2 預大夜班 (00:00 上班)」間隔僅 7.5 小時，100% 精準觸發警示阻擋！
-  const isDayShift = ['D', 'SAT_D', 'T', 'D_CCT', 'd(US)', 'd(m)', 'C9', 'C8', 'M', 'd1', 'C2', 'C2(m)', '83（行）', 'CO（n）'].includes(shiftCode) || (startHour >= 7 && startHour <= 10 && endHour < 24)
-  if (isDayShift) {
-    endHour = Math.max(endHour, 16.5)
-  }
-
-  return { startHour, endHour }
-}
-

@@ -114,17 +114,16 @@
       <summary>
         <ShieldAlert :size="16" />
         <strong>勞基法接班防呆（系統自動阻擋）</strong>
-        <span class="rule-chip">① 日/晚/小夜 ➜ 隔天禁大夜 N</span>
-        <span class="rule-chip">② MRI 晚班 e(m) ➜ 隔天禁 08:00 日班</span>
-        <span class="rule-chip">③ 小夜 E ➜ 隔天禁日/晚/大夜</span>
-        <span class="rule-chip">休息須滿 11 小時</span>
+        <span class="rule-chip">兩班之間休息須滿 11 小時</span>
+        <span class="rule-chip">半天班隔天禁大夜（科內規定）</span>
+        <span class="rule-chip">特休／公假不受限</span>
         <span class="rules-toggle-hint">點擊展開完整說明</span>
       </summary>
       <div class="rules-detail">
-        <div>• <strong>規範一 (禁接大夜)</strong>：全日間/晚班/小夜班 (D, E, d(US), d1, T, C9, d(m), e(m), C8, C2(m), C2, M) ➜ 隔天 100% 禁接大夜班 N。</div>
-        <div>• <strong>規範二 (MRI晚班限制)</strong>：MRI 晚班 e(m) (21:30 下班) ➜ 隔天 100% 禁接 08:00 日班 (D, d(US), d1, T, d(m))，休息僅 10.5h 未滿 11h。</div>
-        <div>• <strong>規範三 (小夜班限制)</strong>：一般小夜班 E (00:30 下班) ➜ 隔天 100% 禁接所有日班/晚班/大夜班 (D, N, d(US), d1, T, C9, d(m), e(m), C8, C2(m), C2, M)，休息僅 7.5h 未滿 11h。</div>
-        <div>• 其他班別組合只要兩班間隔未滿 11 小時，同樣會被阻擋；日曆與選班明細會直接標示阻擋原因。</div>
+        <div>• <strong>休息滿 11 小時</strong>：前一班下班到下一班上班未滿 11 小時即阻擋。時間直接取自「班別與時間段設定」，改了時間這裡的判定會跟著變。</div>
+        <div>• <strong>以目前預設時間為例</strong>：日班／晚班／小夜班 ➜ 隔天不可接大夜班 N；MRI 晚班 e(m)（21:30 下班）➜ 隔天不可接 08:00 日班；一般小夜班 E（00:30 下班）➜ 隔天不可接 11:30 前上班的班別。</div>
+        <div>• <strong>科內規定</strong>：半天班視同 16:30 下班起算休息，隔天一樣不可接大夜班（可在班別設定的「休息起算時間」調整）。</div>
+        <div>• 特休、公假沒有出勤時間，不受休息間隔限制。完整對照請看「班別與時間段設定」下方的「接班檢核預覽」；日曆與選班明細會直接標示阻擋原因。</div>
       </div>
     </details>
 
@@ -462,6 +461,7 @@
 import { ref, computed, watch } from 'vue'
 import { User, UserCheck, Sliders, Sparkles, CheckCircle, Plus, Trash2, RotateCcw, Calendar, Clock, ShieldAlert } from 'lucide-vue-next'
 import { SHIFT_DEFS } from '../core/types.js'
+import { getShiftHours as calcShiftHours, MIN_REST_HOURS } from '../core/shiftTime.js'
 import { 
   validateBidding, 
   autoFillUnfilledSlots, 
@@ -564,10 +564,11 @@ const slotModal = ref({
 const availableShiftsForModal = computed(() => {
   const res = {}
   
-  if (SHIFT_DEFS['V']) res['V'] = SHIFT_DEFS['V']
-  if (SHIFT_DEFS['公']) res['公'] = SHIFT_DEFS['公']
+  const defs = mergedDefs.value
+  if (defs['V']) res['V'] = defs['V']
+  if (defs['公']) res['公'] = defs['公']
 
-  Object.entries(SHIFT_DEFS).forEach(([code, def]) => {
+  Object.entries(defs).forEach(([code, def]) => {
     if (code !== 'V' && code !== '公') {
       if (!def.targetRole || def.targetRole === activeRosterRole.value) {
         res[code] = def
@@ -603,12 +604,7 @@ function getFilteredSlotsByRole(daySlots) {
 // 依班別時段估算工時（OnCall 待命與假別不計）
 function getShiftHours(shiftCode) {
   if (shiftCode === 'CALL' || shiftCode === 'CALL_NURSE') return 0
-  const m = /(\d{1,2}):(\d{2})\s*-\s*(\d{1,2}):(\d{2})/.exec(mergedDefs.value[shiftCode]?.time || '')
-  if (!m) return 0
-  const start = Number(m[1]) + Number(m[2]) / 60
-  let end = Number(m[3]) + Number(m[4]) / 60
-  if (end <= start) end += 24
-  return end - start
+  return calcShiftHours(mergedDefs.value[shiftCode])
 }
 
 const myStats = computed(() => {
@@ -792,15 +788,14 @@ function getSlotSkill(slot) {
 }
 
 // ===== 勞基法與資格事前預檢（用 validateBidding 判斷，只用於顯示，不放寬任何規則） =====
-function buildBlockStatus(error, dateStr) {
-  const msg = String(error || '')
-  if (/違法|勞基法|休息/.test(msg)) {
-    const isPrev = msg.includes('前一日')
-    const refDate = isPrev ? getPrevDateStr(dateStr) : getNextDateStr(dateStr)
-    const refCode = myDayMap.value[refDate]?.slot?.shiftCode
-    const gap = (/僅\s*([\d.]+)\s*小時/.exec(msg) || [])[1]
-    const where = isPrev ? `前日${refCode ? ' ' + refCode + ' 班' : '出勤'}` : `隔日已排${refCode ? ' ' + refCode + ' 班' : '班別'}`
-    return { kind: 'law', group: 4, label: `⛔ 勞基法阻擋：${where}${gap ? '，休息僅 ' + gap + 'h' : ''}（未滿 11h）` }
+function buildBlockStatus(val) {
+  const msg = String(val.error || '')
+  if (val.restGap) {
+    const { direction, otherCode, gap, byDeptRule } = val.restGap
+    const where = direction === 'prev' ? `前日 ${otherCode} 班` : `隔日已排 ${otherCode} 班`
+    const gapText = gap < 0 ? '兩班時段重疊' : `休息僅 ${gap.toFixed(1)}h`
+    const title = byDeptRule ? '科內規定阻擋' : '勞基法阻擋'
+    return { kind: 'law', group: 4, label: `⛔ ${title}：${where}，${gapText}（未滿 ${MIN_REST_HOURS}h）` }
   }
   if (msg.includes('請假')) return { kind: 'leave', group: 4, label: '🏖️ 當日有請假紀錄' }
   if (msg.includes('同一天不可重複')) return { kind: 'day-taken', group: 4, label: '📌 今日已選其他班（一天一班）' }
@@ -827,7 +822,7 @@ function evaluateSlot(staff, slot, dateStr) {
     constraints: props.constraints,
     customShiftDefs: props.shiftDefs
   })
-  if (!val.valid) return { ...buildBlockStatus(val.error, dateStr), isSecondary, error: val.error }
+  if (!val.valid) return { ...buildBlockStatus(val), isSecondary, error: val.error }
   const target = isSecondary ? getSkillTargetStatus(staff.id, skill) : null
   if (target && !target.isMet) {
     return { kind: 'priority', group: 1, label: `🔥 ${getSkillName(skill)} 未達標：已選 ${target.count}/${target.target} 天，尚差 ${target.remain} 天`, isSecondary }
@@ -1118,7 +1113,8 @@ function handleAutoFill() {
     slotsByDate: props.slotsByDate,
     staffList: props.staffList,
     leaves: props.leaves,
-    constraints: props.constraints
+    constraints: props.constraints,
+    customShiftDefs: props.shiftDefs
   })
   emit('update:slotsByDate', filledSlots)
   alert(`【${activeRosterRole.value}】智慧填補完成！已自動將符合資格之同仁排入缺額班別中。`)

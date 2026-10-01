@@ -110,6 +110,7 @@
       <TabShiftDefs 
         v-if="activeTab === 'shifts'" 
         v-model:shiftDefs="shiftDefs"
+        @rename-code="handleRenameShiftCode"
       />
 
 
@@ -124,6 +125,7 @@
         v-if="activeTab === 'manual'"
         :staff="staff"
         :slotsByDate="slotsByDate"
+        :shiftDefs="shiftDefs"
         v-model:locks="locks"
       />
 
@@ -149,6 +151,7 @@
         :staff="staff"
         :roster="roster"
         :slotsByDate="slotsByDate"
+        :shiftDefs="shiftDefs"
         :leaves="leaves"
         :warnings="warnings"
         :manualEdits="manualEdits"
@@ -184,6 +187,7 @@ import { solveRoster } from './core/solver.js'
 import { exportRosterToExcel } from './core/exporter.js'
 import { loadState, saveState, exportBackupJSON, importBackupJSON } from './core/storage.js'
 import { generateDefaultSlots } from './core/biddingEngine.js'
+import { normalizeShiftDefs } from './core/shiftTime.js'
 
 // 核心響應式狀態 (全可由主管在 UI 直接修改)
 const year = ref(loadState('year', 2026))
@@ -217,7 +221,8 @@ if (savedTargetsVersion !== SPECIALTY_TARGETS_VERSION) {
 // 載入時依第二專長重新排序（只調整順序，保留使用者勾選的專長設定）
 const staff = ref(sortStaffBySpecialty(loadState('staff', JSON.parse(JSON.stringify(DEFAULT_STAFF)))))
 saveState('staff', staff.value)
-const shiftDefs = ref(loadState('shiftDefs', SHIFT_DEFS))
+// 班別定義：舊版只存時間文字的資料，載入時自動補齊 start / end / restEnd 欄位（不更動使用者原本的設定值）
+const shiftDefs = ref(normalizeShiftDefs(loadState('shiftDefs', SHIFT_DEFS), { legacy: true }))
 const constraints = ref(loadState('constraints', {
   enableRestGap: true,
   restGapHours: 11,
@@ -342,6 +347,29 @@ function handleApplyBiddingToRoster(newRoster) {
   activeTab.value = 'result'
 }
 
+// 班別代號改名時，已開班格子、人工指定與班表內的舊代號一併更新，避免對不到班別定義
+function handleRenameShiftCode({ oldCode, newCode }) {
+  if (!oldCode || !newCode || oldCode === newCode) return
+
+  const updatedSlots = JSON.parse(JSON.stringify(slotsByDate.value || {}))
+  Object.values(updatedSlots).forEach(daySlots => {
+    (daySlots || []).forEach(slot => {
+      if (slot.shiftCode === oldCode) slot.shiftCode = newCode
+    })
+  })
+  slotsByDate.value = updatedSlots
+
+  locks.value = locks.value.map(l => (l.shiftCode === oldCode ? { ...l, shiftCode: newCode } : l))
+
+  const updatedRoster = JSON.parse(JSON.stringify(roster.value || {}))
+  Object.values(updatedRoster).forEach(dayRoster => {
+    Object.keys(dayRoster || {}).forEach(staffId => {
+      if (dayRoster[staffId] === oldCode) dayRoster[staffId] = newCode
+    })
+  })
+  roster.value = updatedRoster
+}
+
 // 單元格手動修改編輯
 function handleCellEdit({ dateStr, staffId, newText }) {
   if (!roster.value[dateStr]) roster.value[dateStr] = {}
@@ -392,7 +420,7 @@ function handleLoadBackup(event) {
     if (data.month) month.value = data.month
     if (data.holidays) holidays.value = data.holidays
     if (data.staff) staff.value = data.staff
-    if (data.shiftDefs) shiftDefs.value = data.shiftDefs
+    if (data.shiftDefs) shiftDefs.value = normalizeShiftDefs(data.shiftDefs, { legacy: true })
     if (data.constraints) constraints.value = data.constraints
     if (data.leaves) leaves.value = data.leaves
     if (data.locks) locks.value = data.locks

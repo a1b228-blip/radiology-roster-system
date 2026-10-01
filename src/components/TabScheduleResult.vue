@@ -107,6 +107,7 @@ const props = defineProps({
   staff: { type: Array, default: () => [] },
   roster: { type: Object, default: () => ({}) },
   slotsByDate: { type: Object, default: () => ({}) },
+  shiftDefs: { type: Object, default: () => ({}) },
   leaves: { type: Array, default: () => [] },
   warnings: { type: Array, default: () => [] },
   manualEdits: { type: Object, default: () => ({}) }
@@ -166,14 +167,19 @@ function getStaffShiftCode(dateStr, staffId) {
 
 
 
+// 班別定義：主管自訂設定優先，內建定義補齊
+function getShiftDef(code) {
+  return props.shiftDefs?.[code] || SHIFT_DEFS[code]
+}
+
 function getShiftBadgeColor(code) {
   if (!code || code === 'OFF') return '#94a3b8'
-  return SHIFT_DEFS[code]?.color || '#0284c7'
+  return getShiftDef(code)?.color || '#0284c7'
 }
 
 function getShiftFullName(code) {
   if (!code || code === 'OFF') return '休假 / OFF'
-  const info = SHIFT_DEFS[code]
+  const info = getShiftDef(code)
   return info ? `${code} (${info.name})` : code
 }
 
