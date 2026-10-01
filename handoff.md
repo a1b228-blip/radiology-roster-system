@@ -31,4 +31,4 @@
 - 線上版 GitHub Pages（gh-pages 分支）尚未重新部署，仍是舊版。
 
 ## 🕐 最後更新
-2026-10-01 15:01｜Claude Code @ 江瑞益的MacBook Air｜Git push：待推
+2026-10-01 15:01｜Claude Code @ 江瑞益的MacBook Air｜Git push：✅ 已推（main）｜⚠️ 線上版 GitHub Pages（gh-pages 分支）尚未重新部署，仍是舊版
