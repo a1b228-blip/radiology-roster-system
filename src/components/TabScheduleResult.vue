@@ -22,14 +22,19 @@
       </div>
     </div>
 
-    <!-- 系統合規提示區 (若有) -->
-    <div v-if="warnings.length > 0" class="card no-print" style="background: #fffbebf5; border-color: #fde68a;">
-      <div style="display: flex; align-items: center; gap: 0.5rem; color: #b45309; font-weight: 700; margin-bottom: 0.4rem;">
-        <AlertTriangle :size="18" />
-        <span>排班合規與人力預警提示 (共 {{ warnings.length }} 則)</span>
+    <!-- 全月合規總檢查：用目前的人員資料、班別設定與排班規則，重新檢查當月每一筆已排的班 -->
+    <div class="card no-print audit-card" :class="auditIssues.length ? 'has-issues' : 'is-clean'">
+      <div class="audit-title">
+        <AlertTriangle v-if="auditIssues.length" :size="18" />
+        <span v-if="auditIssues.length">全月合規總檢查：發現 {{ auditIssues.length }} 項不符合（表格中以紅框標示）</span>
+        <span v-else>✅ 全月合規總檢查：{{ year }} 年 {{ month }} 月已排的班全部符合目前的規則</span>
       </div>
-      <ul style="padding-left: 1.2rem; font-size: 0.85rem; color: #92400e;">
-        <li v-for="(w, idx) in warnings" :key="idx">{{ w }}</li>
+      <p class="audit-hint">規則、班別時間或人員資料修改後會自動重新檢查。這裡只列出問題，不會自動退班，請主管到「同仁自主選班」調整。</p>
+      <ul v-if="auditIssues.length" class="audit-list">
+        <li v-for="(issue, idx) in auditIssues" :key="idx">
+          <span class="audit-tag" :class="'tag-' + issue.category">{{ issue.category }}</span>
+          {{ issue.message }}
+        </li>
       </ul>
     </div>
 
@@ -74,8 +79,10 @@
                 class="code-cell"
                 :class="{ 
                   'is-weekend-td': isWeekendDay(day),
-                  'cell-edited': isEdited(getDateStr(day), s.id) 
+                  'cell-edited': isEdited(getDateStr(day), s.id),
+                  'cell-issue': issueCellKeys.has(getDateStr(day) + '|' + s.id)
                 }"
+                :title="issueCellKeys.has(getDateStr(day) + '|' + s.id) ? '這一天的班不符合目前的規則，詳見上方全月合規總檢查' : ''"
               >
                 <span 
                   class="shift-code-badge"
@@ -109,7 +116,7 @@ const props = defineProps({
   slotsByDate: { type: Object, default: () => ({}) },
   shiftDefs: { type: Object, default: () => ({}) },
   leaves: { type: Array, default: () => [] },
-  warnings: { type: Array, default: () => [] },
+  auditIssues: { type: Array, default: () => [] },
   manualEdits: { type: Object, default: () => ({}) }
 })
 
@@ -127,6 +134,9 @@ const roleFilters = [
 
 const filteredStaffList = computed(() => props.staff)
 
+
+// 有合規問題的格子（日期|員工編號）
+const issueCellKeys = computed(() => new Set(props.auditIssues.filter(i => i.staffId).map(i => `${i.dateStr}|${i.staffId}`)))
 
 const daysInMonth = computed(() => new Date(props.year, props.month, 0).getDate())
 
@@ -189,6 +199,18 @@ function isEdited(dateStr, staffId) {
 </script>
 
 <style scoped>
+.audit-card.has-issues { background: #fef2f2; border-color: #fca5a5; }
+.audit-card.is-clean { background: #f0fdf4; border-color: #86efac; }
+.audit-title { display: flex; align-items: center; gap: 0.5rem; font-weight: 700; }
+.audit-card.has-issues .audit-title { color: #991b1b; }
+.audit-card.is-clean .audit-title { color: #166534; }
+.audit-hint { font-size: 0.8rem; color: #64748b; margin: 0.3rem 0 0 0; }
+.audit-list { padding-left: 1.2rem; margin: 0.6rem 0 0 0; font-size: 0.85rem; color: #7f1d1d; line-height: 1.7; max-height: 260px; overflow-y: auto; }
+.audit-tag { display: inline-block; padding: 0 6px; margin-right: 6px; border-radius: 4px; font-size: 0.72rem; font-weight: 700; background: #e2e8f0; color: #334155; }
+.audit-tag.tag-勞基法 { background: #dc2626; color: white; }
+.audit-tag.tag-科內規定 { background: #d97706; color: white; }
+.cell-issue { outline: 2px solid #dc2626; outline-offset: -2px; }
+
 .roster-table {
   border-collapse: collapse;
   width: 100%;

@@ -68,113 +68,52 @@
       </div>
     </div>
 
+    <!-- 系統實際檢查的規則一覽（只列真的有連動的，不可關閉） -->
     <div class="card card-glass">
-      <div class="card-title" style="justify-content: space-between; flex-wrap: wrap; gap: 10px;">
-        <div style="display: flex; align-items: center; gap: 0.5rem;">
-          <ShieldCheck :size="22" />
-          <span style="font-weight: 800; font-size: 1.15rem; color: #0d5c53;">排班合規、營運計畫與權重規範設定</span>
-        </div>
-
-        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-          <!-- 📥 下載 Excel 設定檔 -->
-          <button class="btn btn-outline" style="font-size: 0.85rem;" @click="handleExportRulesExcel">
-            <Download :size="15" />
-            <span>📥 下載 Excel 設定檔</span>
-          </button>
-
-          <!-- 📤 上傳 Excel 同步排班規範 -->
-          <label class="btn btn-outline" style="font-size: 0.85rem; cursor: pointer; background: #f0fdf4; border-color: #86efac; color: #166534;">
-            <Upload :size="15" />
-            <span>📤 上傳 Excel 同步排班規範</span>
-            <input type="file" accept=".xlsx, .xls" @change="handleImportRulesExcel" style="display: none;" />
-          </label>
-
-          <!-- 💾 儲存設定 -->
-          <button class="btn btn-primary" style="font-size: 0.85rem; font-weight: 700; background: #0d5c53; border-color: #0d5c53;" @click="saveSettings">
-            <Save :size="15" />
-            <span>儲存設定</span>
-          </button>
-        </div>
+      <div class="card-title" style="flex-wrap: wrap; gap: 10px;">
+        <ShieldCheck :size="22" />
+        <span style="font-weight: 800; font-size: 1.15rem; color: #0d5c53;">系統實際檢查的規則一覽</span>
+        <span style="font-size: 0.8rem; color: #64748b; font-weight: 500;">同仁選班、人工指定班別、年假上課登記與全月合規總檢查，用的都是這一套</span>
       </div>
-
-      <p style="font-size: 0.85rem; color: #64748b; margin-top: 0.4rem; margin-bottom: 1.2rem;">
-        主管可在此自由設置<b>勞基法剛性條款、醫療業四週變形工時與放射科營運計畫</b>。權重設置為 <b>100%</b> 時屬硬性紅線（同仁自主選班觸犯時<b>系統將全自動跳出警示並禁止選填</b>）。您亦可在 Excel 表格中更新後隨時匯入同步！
-      </p>
-
-      <div class="table-container">
+      <div class="table-container" style="margin-top: 0.8rem;">
         <table class="data-table">
           <thead>
             <tr>
-              <th style="width: 80px; text-align: center;">編號</th>
-              <th style="width: 140px; text-align: center;">規範分類</th>
-              <th>排班規範與營運計畫名稱</th>
-              <th style="width: 160px;">依據法規 / 院規</th>
-              <th style="width: 110px; text-align: center;">權重 (%)</th>
-              <th>觸犯時系統處理動作</th>
-              <th style="width: 90px; text-align: center;">啟用狀態</th>
+              <th style="width: 110px; text-align: center;">類別</th>
+              <th>規則</th>
+              <th style="width: 220px;">目前標準</th>
+              <th style="width: 220px;">在哪裡設定</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="r in localRules" :key="r.id" :class="{ 'is-disabled-row': !r.enabled }">
-              <td style="text-align: center; font-weight: 800; font-family: monospace; color: #475569;">{{ r.id }}</td>
-              <td style="text-align: center;">
-                <span 
-                  class="badge" 
-                  :style="{ 
-                    backgroundColor: getCategoryColor(r.category),
-                    color: 'white',
-                    fontWeight: '700',
-                    fontSize: '11px' 
-                  }"
-                >
-                  {{ r.category }}
-                </span>
-              </td>
-              <td style="font-weight: 700; color: #0f172a;">
-                <input v-model="r.name" style="width: 100%; border: 1px solid #cbd5e1; border-radius: 4px; padding: 3px 6px;" />
-              </td>
-              <td style="font-size: 0.82rem; color: #64748b;">
-                <input v-model="r.lawRef" style="width: 100%; border: 1px solid #cbd5e1; border-radius: 4px; padding: 3px 6px;" />
-              </td>
-              <td style="text-align: center;">
-                <input 
-                  type="number" 
-                  min="1" 
-                  max="100" 
-                  v-model.number="r.weight" 
-                  style="width: 65px; text-align: center; font-weight: 800; border-radius: 4px; border: 1px solid #cbd5e1; padding: 3px;"
-                  :style="{ color: r.weight === 100 ? '#dc2626' : '#d97706' }"
-                />
-              </td>
-              <td style="font-size: 0.8rem;">
-                <span v-if="r.weight === 100" style="color: #dc2626; font-weight: 800;">⛔ 硬性強制作業不可違反 (系統禁止選班)</span>
-                <span v-else-if="r.weight >= 90" style="color: #ea580c; font-weight: 700;">⚠️ 營運保底提示與人力調配引導</span>
-                <span v-else style="color: #ca8a04; font-weight: 600;">💡 黃色溫馨提示提醒</span>
-              </td>
-              <td style="text-align: center;">
-                <input type="checkbox" v-model="r.enabled" style="transform: scale(1.2); cursor: pointer;" />
-              </td>
+            <tr v-for="(r, idx) in enforcedRules" :key="idx">
+              <td style="text-align: center;"><span class="rule-category" :class="'cat-' + r.category">{{ r.category }}</span></td>
+              <td style="font-weight: 600;">{{ r.name }}</td>
+              <td>{{ r.standard }}</td>
+              <td style="color: #64748b;">{{ r.where }}</td>
             </tr>
           </tbody>
         </table>
       </div>
+      <p style="font-size: 0.8rem; color: #64748b; margin-top: 0.6rem;">
+        尚未實作的法規項目：每四週正常工時 160 小時上限、每二週 2 日例假、每四週 8 日休假、妊娠或哺乳期間夜間工作限制。詳見 docs/勞基法排班規則草案.md。
+      </p>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, watch } from 'vue'
-import { ShieldCheck, Download, Upload, Save } from 'lucide-vue-next'
+import { ref, computed, watch } from 'vue'
+import { ShieldCheck } from 'lucide-vue-next'
 import { saveState } from '../core/storage.js'
-import { exportRulesToExcel, importRulesFromExcel } from '../core/exporter.js'
+import { MIN_REST_HOURS } from '../core/shiftTime.js'
 import { normalizeDeptRules, LEGAL_MAX_CONSECUTIVE_WORK_DAYS } from '../core/deptRules.js'
 
 const props = defineProps({
-  complianceRules: { type: Array, default: () => [] },
   deptRules: { type: Object, default: () => ({}) }
 })
 
-const emit = defineEmits(['update:complianceRules', 'update:deptRules'])
+const emit = defineEmits(['update:deptRules'])
 
 // 科內排班基準：修改後立即套用（normalizeDeptRules 會擋掉比法規寬鬆或不合理的數字）
 const localDept = ref(normalizeDeptRules(props.deptRules))
@@ -190,51 +129,34 @@ function updateDeptRules() {
   saveState('deptRules', cleaned)
 }
 
-const localRules = ref(JSON.parse(JSON.stringify(props.complianceRules || [])))
-
-watch(() => props.complianceRules, (newVal) => {
-  localRules.value = JSON.parse(JSON.stringify(newVal || []))
-}, { deep: true })
-
-function getCategoryColor(cat) {
-  if (cat === '勞基法剛性規範') return '#dc2626'
-  if (cat === '四週變形工時') return '#e11d48'
-  if (cat === '科內營運計畫') return '#0d5c53'
-  if (cat === '院內健康關懷') return '#d97706'
-  return '#64748b'
-}
-
-function saveSettings() {
-  emit('update:complianceRules', localRules.value)
-  saveState('complianceRules', localRules.value)
-  alert('✅ 【排班合規、營運計畫與權重規範設定】已成功儲存！已 100% 自動連動全系統合規與選班警示檢核。')
-}
-
-function handleExportRulesExcel() {
-  exportRulesToExcel(localRules.value)
-}
-
-async function handleImportRulesExcel(e) {
-  const file = e.target.files[0]
-  if (!file) return
-
-  try {
-    const importedRules = await importRulesFromExcel(file)
-    if (importedRules && importedRules.length > 0) {
-      localRules.value = importedRules
-      emit('update:complianceRules', importedRules)
-      saveState('complianceRules', importedRules)
-      alert(`✅ 成功匯入並同步 ${importedRules.length} 條 Excel 排班規範與權重設定！`)
-    } else {
-      alert('⚠️ 未能從 Excel 中解析出有效之排班規範，請檢查檔案格式。')
-    }
-  } catch (err) {
-    alert('❌ 匯入 Excel 失敗：' + err.message)
-  }
-}
+// 系統實際有在檢查的規則（與 biddingEngine.js、deptRules.js 的檢查項目一一對應）
+const enforcedRules = computed(() => {
+  const d = localDept.value
+  return [
+    { category: '勞基法', name: '班與班之間休息至少 11 小時', standard: `${MIN_REST_HOURS} 小時（依班別上下班時間計算）`, where: '班別與時間段設定' },
+    { category: '科內規定', name: '半天班等班別視同較晚下班起算休息（例：半天班隔天不可接大夜）', standard: '依各班別的「休息起算時間」', where: '班別與時間段設定' },
+    { category: '科內規定', name: '連續上班天數上限（特休、公假、年假上課都算上班）', standard: `最多 ${d.maxConsecutiveWorkDays} 天`, where: '本頁上方' },
+    { category: '科內規定', name: '小夜班每月輪數與每輪連續天數', standard: `每月 ${d.eveningMaxRunsPerMonth} 輪，每輪 ${d.eveningMaxRunLength} 天`, where: '本頁上方' },
+    { category: '科內規定', name: '大夜班每月輪數與每輪連續天數', standard: `每月 ${d.nightMaxRunsPerMonth} 輪，每輪 ${d.nightMaxRunLength} 天`, where: '本頁上方' },
+    { category: '科內規定', name: '大夜班隔天必須休假，再隔一天才能接白班', standard: d.restDayAfterNight ? '啟用' : '未啟用', where: '本頁上方' },
+    { category: '資格', name: '職類相符（放射師／護理人員／書記只能排自己職類的班）', standard: '依班別的適用職類', where: '班別與時間段設定' },
+    { category: '資格', name: '專長資格（具備該班要求的專長才能排）', standard: '依班別的專業資格要求', where: '人員檔案、班別與時間段設定' },
+    { category: '資格', name: '夜班資格（小夜、大夜班須勾選可上夜班）', standard: '依人員檔案', where: '人員檔案、班別的夜班類別' },
+    { category: '資格', name: '六日資格（放射師須勾選可值六日才能排週六、週日班）', standard: '依人員檔案', where: '人員檔案' },
+    { category: '資格', name: '在職狀態（停用／留停不可排班）', standard: '依人員檔案', where: '人員檔案' },
+    { category: '開班', name: '每班名額（額滿不可再排）', standard: '依班別的每班名額', where: '班別與時間段設定' },
+    { category: '開班', name: '一人一天只能排一個班；請假或年假上課當天不可排班', standard: '固定', where: '—' },
+    { category: '開班', name: '國定假日只開有勾選「國定假日開班」的班別', standard: '依國定假日清單', where: '班別與時間段設定' }
+  ]
+})
 </script>
 
 <style scoped>
+.rule-category { display: inline-block; padding: 1px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 700; background: #e2e8f0; color: #334155; }
+.rule-category.cat-勞基法 { background: #dc2626; color: white; }
+.rule-category.cat-科內規定 { background: #d97706; color: white; }
+.rule-category.cat-資格 { background: #0d5c53; color: white; }
+
 .dept-input {
   width: 56px;
   text-align: center;
@@ -244,8 +166,4 @@ async function handleImportRulesExcel(e) {
   font-weight: 700;
 }
 
-.is-disabled-row {
-  opacity: 0.5;
-  background: #f8fafc;
-}
 </style>

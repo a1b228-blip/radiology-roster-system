@@ -307,13 +307,6 @@
           </select>
         </div>
 
-        <div class="form-group-checkbox" v-if="activeRosterRole === '放射師'">
-          <label>
-            <input type="checkbox" v-model="slotModal.requireSeniorPairing" />
-            搭檔限制：班內至少需含 1 位資深/主管人員
-          </label>
-        </div>
-
         <div class="modal-actions">
           <button class="btn btn-secondary" @click="slotModal.show = false">取消</button>
           <button class="btn btn-primary" @click="saveAdminSlot">儲存設定</button>
@@ -572,8 +565,7 @@ const slotModal = ref({
   slotId: '',
   shiftCode: 'D_CT',
   capacity: 2,
-  requiredSkill: 'ct',
-  requireSeniorPairing: true
+  requiredSkill: 'ct'
 })
 
 // Modal 可選的班別下拉選單 (優先置頂特休 V 與公假 公)
@@ -838,6 +830,8 @@ function buildBlockStatus(val) {
   if (msg.includes('同一天不可重複')) return { kind: 'day-taken', group: 4, label: '📌 今日已選其他班（一天一班）' }
   if (msg.includes('名額已滿')) return { kind: 'full', group: 5, label: '⚪ 名額已滿' }
   if (msg.includes('職類不符')) return { kind: 'no-skill', group: 5, label: '⚪ 非本職類班別' }
+  if (val.noWeekend) return { kind: 'no-skill', group: 5, label: '⚪ 未開放六日班' }
+  if (val.inactive) return { kind: 'no-skill', group: 5, label: '⚪ 非在職人員' }
   if (msg.includes('夜班')) return { kind: 'no-skill', group: 5, label: '⚪ 未開放上夜班' }
   if (msg.includes('缺')) return { kind: 'no-skill', group: 5, label: `⚪ 無資格：${msg.replace(/^缺\s*/, '缺 ')}` }
   return { kind: 'blocked', group: 4, label: `⛔ ${msg}` }
@@ -999,8 +993,7 @@ function handleSlotClick(slot, dateStr) {
       slotId: slot.id,
       shiftCode: slot.shiftCode,
       capacity: slot.capacity,
-      requiredSkill: slot.requiredSkill,
-      requireSeniorPairing: slot.minLevel === 'SeniorPairing'
+      requiredSkill: slot.requiredSkill
     }
   } else {
     toggleSlotBidding(slot, dateStr)
@@ -1072,28 +1065,24 @@ function openAddSlotModal(dateStr) {
     slotId: '',
     shiftCode: defaultShift,
     capacity: 1,
-    requiredSkill: null,
-    requireSeniorPairing: false
+    requiredSkill: null
   }
 }
 
 function saveAdminSlot() {
-  const { isEdit, dateStr, slotId, shiftCode, capacity, requiredSkill, requireSeniorPairing } = slotModal.value
-  const minLevel = requireSeniorPairing ? 'SeniorPairing' : null
+  const { isEdit, dateStr, slotId, shiftCode, capacity, requiredSkill } = slotModal.value
 
   if (isEdit) {
     const updated = updateSlotInDate(props.slotsByDate, dateStr, slotId, {
       capacity,
-      requiredSkill,
-      minLevel
+      requiredSkill
     })
     emit('update:slotsByDate', updated)
   } else {
     const updated = addSlotToDate(props.slotsByDate, dateStr, {
       shiftCode,
       capacity,
-      requiredSkill,
-      minLevel
+      requiredSkill
     })
     emit('update:slotsByDate', updated)
   }
@@ -1124,11 +1113,11 @@ function handleBatchAddLeaveSlots() {
       const hasOffi = daySlots.some(s => s.shiftCode === '公')
 
       if (!hasV) {
-        updated = addSlotToDate(updated, dateStr, { shiftCode: 'V', capacity: 2, requiredSkill: null, minLevel: null })
+        updated = addSlotToDate(updated, dateStr, { shiftCode: 'V', capacity: 2, requiredSkill: null })
         countAdded++
       }
       if (!hasOffi) {
-        updated = addSlotToDate(updated, dateStr, { shiftCode: '公', capacity: 1, requiredSkill: null, minLevel: null })
+        updated = addSlotToDate(updated, dateStr, { shiftCode: '公', capacity: 1, requiredSkill: null })
         countAdded++
       }
     }

@@ -104,7 +104,6 @@
 
       <TabRulesAndWeights
         v-if="activeTab === 'rules'"
-        v-model:complianceRules="complianceRules"
         v-model:deptRules="deptRules"
       />
 
@@ -112,6 +111,8 @@
         v-if="activeTab === 'shifts'" 
         v-model:shiftDefs="shiftDefs"
         :deptRules="deptRules"
+        v-model:holidays="holidays"
+        v-model:holidayNames="holidayNames"
         @rename-code="handleRenameShiftCode"
       />
 
@@ -133,7 +134,7 @@
         :slotsByDate="slotsByDate"
         :shiftDefs="shiftDefs"
         :deptRules="deptRules"
-        :adjacentSlots="adjacentSlots"
+        :slotsArchive="slotsArchive"
         :leaves="leaves"
         v-model:locks="locks"
       />
@@ -164,7 +165,7 @@
         :slotsByDate="slotsByDate"
         :shiftDefs="shiftDefs"
         :leaves="leaves"
-        :warnings="warnings"
+        :auditIssues="auditIssues"
         :manualEdits="manualEdits"
         @generate="handleGenerate"
         @cell-edit="handleCellEdit"
@@ -191,13 +192,13 @@ import TabShiftBidding from './components/TabShiftBidding.vue'
 import TabScheduleResult from './components/TabScheduleResult.vue'
 
 
-import { DEFAULT_STAFF, SHIFT_DEFS, DEFAULT_COMPLIANCE_RULES, DEFAULT_SPECIALTY_TARGETS, STAFF_DATA_VERSION, SPECIALTY_TARGETS_VERSION, sortStaffBySpecialty } from './core/types.js'
+import { DEFAULT_STAFF, SHIFT_DEFS, DEFAULT_SPECIALTY_TARGETS, STAFF_DATA_VERSION, SPECIALTY_TARGETS_VERSION, sortStaffBySpecialty } from './core/types.js'
 
 
 import { solveRoster } from './core/solver.js'
 import { exportRosterToExcel } from './core/exporter.js'
 import { loadState, saveState, exportBackupJSON, importBackupJSON } from './core/storage.js'
-import { generateDefaultSlots, getOpeningSignature, syncSlotsWithShiftDefs } from './core/biddingEngine.js'
+import { generateDefaultSlots, getOpeningSignature, syncSlotsWithShiftDefs, auditMonthSchedule } from './core/biddingEngine.js'
 import { normalizeShiftDefs, getShiftInterval } from './core/shiftTime.js'
 import { normalizeDeptRules } from './core/deptRules.js'
 
@@ -205,6 +206,8 @@ import { normalizeDeptRules } from './core/deptRules.js'
 const year = ref(loadState('year', 2026))
 const month = ref(loadState('month', 9))
 const holidays = ref(loadState('holidays', ['2026-09-28']))
+// 國定假日名稱（日期 ➜ 名稱），只用於顯示
+const holidayNames = ref(loadState('holidayNames', {}))
 // 人員主檔版本檢查：LocalStorage 內的名冊版本不是最新版時，改載入最新預設名冊與第二專長目標
 // （舊資料先另存一份備份，避免手動修改過的內容直接遺失）
 const savedStaffVersion = loadState('staffDataVersion', null)
@@ -248,7 +251,6 @@ const deptRules = ref(normalizeDeptRules(loadState('deptRules', null)))
 const constraints = ref(loadState('constraints', {
   enableRestGap: true,
   restGapHours: 11,
-  enableSeniorPairing: true,
   maxNightShiftsPerMonth: 6
 }))
 const leaves = ref(loadState('leaves', []))
@@ -280,16 +282,26 @@ const adjacentSlots = computed(() => {
   }
 })
 
+// 全月合規總檢查：規則、班別時間或人員資料一改就重新檢查當月所有已排的班
+const auditIssues = computed(() => auditMonthSchedule({
+  slotsByDate: slotsByDate.value || {},
+  adjacentSlots: adjacentSlots.value,
+  staffList: staff.value,
+  leaves: leaves.value,
+  constraints: constraints.value,
+  customShiftDefs: shiftDefs.value,
+  deptRules: deptRules.value
+}))
+
 const fontScale = ref(1.0)
 const showEditHighlight = ref(true)
 const activeTab = ref('bidding') // 預設開啟同仁自主選班 Tab
 
 const specialtyTargets = ref(loadState('specialtyTargets', null) || DEFAULT_SPECIALTY_TARGETS)
-const complianceRules = ref(loadState('complianceRules', null) || DEFAULT_COMPLIANCE_RULES)
 
 
 // 監聽並持久化儲存
-watch([year, month, holidays, staff, shiftDefs, constraints, leaves, locks, roster, warnings, manualEdits, slotsByDate, specialtyTargets, complianceRules, deptRules, slotsArchive], () => {
+watch([year, month, holidays, staff, shiftDefs, constraints, leaves, locks, roster, warnings, manualEdits, slotsByDate, specialtyTargets, deptRules, slotsArchive, holidayNames], () => {
   saveState('year', year.value)
   saveState('month', month.value)
   saveState('holidays', holidays.value)
@@ -303,7 +315,7 @@ watch([year, month, holidays, staff, shiftDefs, constraints, leaves, locks, rost
   saveState('manualEdits', manualEdits.value)
   saveState('slotsByDate', slotsByDate.value)
   saveState('specialtyTargets', specialtyTargets.value)
-  saveState('complianceRules', complianceRules.value)
+  saveState('holidayNames', holidayNames.value)
   saveState('deptRules', deptRules.value)
   saveState('slotsArchive', slotsArchive.value)
 }, { deep: true })
@@ -349,9 +361,37 @@ function syncLocksToSlots() {
 }
 
 
-watch(locks, () => {
+// 刪除人工指定時，把該同仁從對應的班格退掉（當月或其他月份的存檔）
+function unassignRemovedLocks(newLocks, oldLocks) {
+  const keyOf = (l) => `${l.date}|${l.staffId}|${l.shiftCode}`
+  const remaining = new Set((newLocks || []).map(keyOf))
+  const removed = (oldLocks || []).filter(l => l.date && !remaining.has(keyOf(l)))
+  if (removed.length === 0) return
+
+  const currentKey = monthKey(year.value, month.value)
+  const unassign = (monthSlots, lock) => {
+    const slot = (monthSlots?.[lock.date] || []).find(s => s.shiftCode === lock.shiftCode && s.assignedStaffIds.includes(lock.staffId))
+    if (slot) slot.assignedStaffIds = slot.assignedStaffIds.filter(id => id !== lock.staffId)
+    return !!slot
+  }
+
+  const updatedSlots = JSON.parse(JSON.stringify(slotsByDate.value || {}))
+  const updatedArchive = JSON.parse(JSON.stringify(slotsArchive.value || {}))
+  let currentChanged = false
+  let archiveChanged = false
+  removed.forEach(lock => {
+    const key = String(lock.date).slice(0, 7)
+    if (key === currentKey) currentChanged = unassign(updatedSlots, lock) || currentChanged
+    else archiveChanged = unassign(updatedArchive[key], lock) || archiveChanged
+  })
+  if (archiveChanged) slotsArchive.value = updatedArchive
+  if (currentChanged) slotsByDate.value = updatedSlots
+}
+
+watch(locks, (newLocks, oldLocks) => {
+  unassignRemovedLocks(newLocks, oldLocks)
   syncLocksToSlots()
-}, { deep: true, immediate: true })
+}, { immediate: true })
 
 // 各月份班格產生時所依據的開班條件：班別設定改了之後，用來找出哪些班別的班格要同步
 const slotSignatures = ref(loadState('slotSignatures', {}))
@@ -393,10 +433,15 @@ watch([year, month], () => {
   syncLocksToSlots()
 })
 
-watch(holidays, () => {
-  // 假日改變時重置當月需求 Slot 矩陣，並連動人工指定班別
-  slotsByDate.value = generateDefaultSlots(year.value, month.value, holidays.value, shiftDefs.value)
-  markSlotsSynced()
+watch(holidays, (newHolidays, oldHolidays) => {
+  // 國定假日有增減時，只同步那幾天的班格（已有人選的班保留），不重置整個月
+  const before = new Set(oldHolidays || [])
+  const after = new Set(newHolidays || [])
+  const prefix = monthKey(year.value, month.value)
+  const changedDates = [...new Set([...before, ...after])].filter(d => before.has(d) !== after.has(d) && d.startsWith(prefix))
+  if (changedDates.length === 0 || !slotsByDate.value) return
+  const allCodes = [...new Set([...Object.keys(shiftDefs.value), ...Object.values(slotsByDate.value).flatMap(daySlots => (daySlots || []).map(s => s.shiftCode))])]
+  slotsByDate.value = syncSlotsWithShiftDefs(slotsByDate.value, year.value, month.value, newHolidays, shiftDefs.value, allCodes, changedDates).slots
   syncLocksToSlots()
 })
 
@@ -502,6 +547,7 @@ function handleBackupJSON() {
     year: year.value,
     month: month.value,
     holidays: holidays.value,
+    holidayNames: holidayNames.value,
     staff: staff.value,
     shiftDefs: shiftDefs.value,
     constraints: constraints.value,
@@ -522,6 +568,7 @@ function handleLoadBackup(event) {
   importBackupJSON(file, (data) => {
     if (data.year) year.value = data.year
     if (data.month) month.value = data.month
+    if (data.holidayNames) holidayNames.value = data.holidayNames
     if (data.holidays) holidays.value = data.holidays
     if (data.staff) staff.value = data.staff
     if (data.shiftDefs) shiftDefs.value = normalizeShiftDefs(data.shiftDefs, { legacy: true })

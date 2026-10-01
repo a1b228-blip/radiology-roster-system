@@ -49,7 +49,7 @@
               <th>在職狀態</th>
               <template v-if="showNightAndSatCols">
                 <th>可排夜班</th>
-                <th>可值週六</th>
+                <th>可值六日</th>
               </template>
               <template v-if="showMachineSkills">
                 <th style="background: #f1f5f9; color: #334155;">第一專長 (X光)</th>

@@ -4,7 +4,7 @@
  */
 
 import { SHIFT_DEFS } from './types.js'
-import { MIN_REST_HOURS } from './shiftTime.js'
+import { MIN_REST_HOURS, getShiftInterval } from './shiftTime.js'
 import { checkNextDayShift, checkConsecutiveWorkDays, checkNightRuns } from './deptRules.js'
 import { EDU_LEAVE_CODE, EDU_LEAVE_DEF, isAnnualLeaveClass, getEduDate } from './education.js'
 
@@ -36,28 +36,16 @@ export function generateDefaultSlots(year, month, holidays = [], customShiftDefs
 
       if (appDays.length === 0) return
 
-      let shouldAdd = false
-      if (isHoliday) {
-        // 國定假日：預設僅發布夜班與 OnCall 待命班別
-        if (['E', 'N', 'CALL', 'CALL_NURSE'].includes(code)) shouldAdd = true
-      } else {
-        if (appDays.includes(dayOfWeek)) shouldAdd = true
-      }
-
+      // 國定假日只開有勾選「國定假日開班」的班別；其餘日子依開班星期
+      const shouldAdd = isHoliday ? def.openOnHoliday === true : appDays.includes(dayOfWeek)
 
       if (shouldAdd) {
-        let cap = 1
-        if (['T', 'd(m)', 'CO（n）', '83（行）', 'V'].includes(code)) cap = 2
-        if (code === 'D' && (dayOfWeek >= 1 && dayOfWeek <= 5)) cap = 3
-        if (code === 'D' && dayOfWeek === 6) cap = 2
-
         daySlots.push({
           id: `${dateStr}_${code}`,
           dateStr,
           shiftCode: code,
-          capacity: cap,
+          capacity: Math.max(parseInt(def.capacity, 10) || 1, 1),
           requiredSkill: def.modKey || null,
-          minLevel: def.needsSenior ? 'SeniorPairing' : null,
           assignedStaffIds: []
         })
       }
@@ -71,13 +59,13 @@ export function generateDefaultSlots(year, month, holidays = [], customShiftDefs
 }
 
 /**
- * 班別的開班條件摘要（代號 ➜ 開班星期｜專長門檻｜資深帶導）
+ * 班別的開班條件摘要（代號 ➜ 開班星期｜專長門檻｜每班名額｜國定假日開班）
  * 用來判斷班別設定改了之後，哪些班別的班格需要重新同步
  */
 export function getOpeningSignature(shiftDefs) {
   const signature = {}
   Object.entries(shiftDefs || {}).forEach(([code, def]) => {
-    signature[code] = `${def.applicableDays ?? ''}|${def.modKey || ''}|${def.needsSenior ? 1 : 0}`
+    signature[code] = `${def.applicableDays ?? ''}|${def.modKey || ''}|${parseInt(def.capacity, 10) || 1}|${def.openOnHoliday ? 1 : 0}`
   })
   return signature
 }
@@ -86,11 +74,13 @@ export function getOpeningSignature(shiftDefs) {
  * 班別設定變更後，把指定班別的班格同步成最新的開班條件，不動已選班的人：
  * - 依設定該開而還沒開的班格 ➜ 補上
  * - 依設定不該開、且沒有人選的自動班格 ➜ 移除（有人選的保留；主管手動加開的班格不動）
- * - 仍該開的班格 ➜ 更新專長門檻與資深帶導條件
+ * - 仍該開的班格 ➜ 更新專長門檻與名額
+ * onlyDates 有給時只同步那些日期（例如國定假日有變動的日子），其餘日期原樣保留
  */
-export function syncSlotsWithShiftDefs(slotsByDate, year, month, holidays, shiftDefs, changedCodes) {
+export function syncSlotsWithShiftDefs(slotsByDate, year, month, holidays, shiftDefs, changedCodes, onlyDates = null) {
   const defaults = generateDefaultSlots(year, month, holidays, shiftDefs)
   const codes = new Set(changedCodes)
+  const codeOrder = Object.keys(shiftDefs || {})
   const isManualSlot = (slot) => /_\d{13}$/.test(String(slot.id))
   const result = {}
   let added = 0
@@ -98,6 +88,10 @@ export function syncSlotsWithShiftDefs(slotsByDate, year, month, holidays, shift
   let keptAssigned = 0
 
   Object.keys(defaults).forEach(dateStr => {
+    if (onlyDates && !onlyDates.includes(dateStr)) {
+      result[dateStr] = (slotsByDate && slotsByDate[dateStr]) || defaults[dateStr]
+      return
+    }
     const defaultByCode = {}
     defaults[dateStr].forEach(s => { defaultByCode[s.shiftCode] = s })
 
@@ -109,7 +103,7 @@ export function syncSlotsWithShiftDefs(slotsByDate, year, month, holidays, shift
       }
       const def = defaultByCode[slot.shiftCode]
       if (def) {
-        daySlots.push({ ...slot, requiredSkill: def.requiredSkill, minLevel: def.minLevel })
+        daySlots.push({ ...slot, requiredSkill: def.requiredSkill, capacity: def.capacity })
       } else if ((slot.assignedStaffIds || []).length > 0) {
         daySlots.push(slot)
         keptAssigned++
@@ -125,7 +119,12 @@ export function syncSlotsWithShiftDefs(slotsByDate, year, month, holidays, shift
       }
     })
 
-    result[dateStr] = daySlots
+    // 維持班別設定的排列順序（補上的班格不會跑到最後面）
+    const orderOf = (slot) => {
+      const idx = codeOrder.indexOf(slot.shiftCode)
+      return idx === -1 ? codeOrder.length : idx
+    }
+    result[dateStr] = daySlots.map((slot, idx) => ({ slot, idx })).sort((a, b) => orderOf(a.slot) - orderOf(b.slot) || a.idx - b.idx).map(({ slot }) => slot)
   })
 
   return { slots: result, added, removed, keptAssigned }
@@ -152,6 +151,11 @@ export function validateBidding({
   // 0. 特例優先：若同仁是在「退選」自己已選入的班別，100% 無條件允許退選！
   if (Array.isArray(slot.assignedStaffIds) && slot.assignedStaffIds.includes(staff.id)) {
     return result
+  }
+
+  // 0-1. 在職狀態：停用／留停的同仁不可排班
+  if (staff.status && staff.status !== '在職') {
+    return { valid: false, error: `${staff.name} 目前為「${staff.status}」，不可排班`, inactive: true }
   }
 
   // 1. 職類比對檢查 (Role Guard)
@@ -196,7 +200,14 @@ export function validateBidding({
   if (slot.requiredSkill === 'mammo' && !staff.mammo) return { valid: false, error: `缺 乳房攝影 證照/資格` }
 
   if (shiftDef?.nightType && !staff.canNight) {
-    return { valid: false, error: `${staff.name} 設定為「不可上夜班/新進人員」，無法選擇急診大小夜班` }
+    return { valid: false, error: `${staff.name} 設定為「不可上夜班」，無法選擇小夜班或大夜班` }
+  }
+
+  // 5-1. 六日資格：人員檔案未勾「可值六日」的放射師不可排週六、週日的出勤班別（假別不受限）
+  //      資料欄位沿用 canSat，避免更動已儲存的人員資料
+  const targetDate = parseStandardDate(dateStr)
+  if (targetDate && [0, 6].includes(targetDate.getDay()) && staff.role === '放射師' && staff.canSat === false && getShiftInterval(shiftDef)) {
+    return { valid: false, error: `${staff.name} 未開放六日班（人員檔案未勾選「可值六日」）`, noWeekend: true }
   }
 
   // 6. 接班與科內排班基準檢查（規則見 deptRules.js 與 docs/勞基法排班規則草案.md）
@@ -267,19 +278,6 @@ export function validateBidding({
       }
     }
   }
-
-  // 7. 資深/資淺搭檔警示
-  if (constraints.enableSeniorPairing !== false && slot.minLevel === 'SeniorPairing') {
-    const isSenior = ['主管', '資深'].includes(staff.level)
-    const existingStaffIds = slot.assignedStaffIds.filter(id => id !== staff.id)
-    const existingStaffs = staffList.filter(s => existingStaffIds.includes(s.id))
-    const hasExistingSenior = existingStaffs.some(s => ['主管', '資深'].includes(s.level))
-
-    if (!isSenior && !hasExistingSenior && existingStaffs.length > 0) {
-      result.warnings.push(`提醒：該機台房目前的已選同仁皆非資深/主管等級，請確保最終班表包含資深人員搭檔`)
-    }
-  }
-
 
   return result
 }
@@ -360,7 +358,7 @@ export function convertSlotsToRoster(slotsByDate, staffList) {
   return roster
 }
 
-export function addSlotToDate(slotsByDate, dateStr, { shiftCode, capacity = 1, requiredSkill = null, minLevel = null }) {
+export function addSlotToDate(slotsByDate, dateStr, { shiftCode, capacity = 1, requiredSkill = null }) {
   const updatedSlots = JSON.parse(JSON.stringify(slotsByDate))
   if (!updatedSlots[dateStr]) updatedSlots[dateStr] = []
 
@@ -371,7 +369,6 @@ export function addSlotToDate(slotsByDate, dateStr, { shiftCode, capacity = 1, r
     shiftCode,
     capacity: parseInt(capacity, 10) || 1,
     requiredSkill,
-    minLevel,
     assignedStaffIds: []
   })
 
@@ -386,14 +383,13 @@ export function removeSlotFromDate(slotsByDate, dateStr, slotId) {
   return updatedSlots
 }
 
-export function updateSlotInDate(slotsByDate, dateStr, slotId, { capacity, requiredSkill, minLevel }) {
+export function updateSlotInDate(slotsByDate, dateStr, slotId, { capacity, requiredSkill }) {
   const updatedSlots = JSON.parse(JSON.stringify(slotsByDate))
   if (updatedSlots[dateStr]) {
     const slot = updatedSlots[dateStr].find(s => s.id === slotId)
     if (slot) {
       if (capacity !== undefined) slot.capacity = parseInt(capacity, 10) || 1
       if (requiredSkill !== undefined) slot.requiredSkill = requiredSkill
-      if (minLevel !== undefined) slot.minLevel = minLevel
     }
   }
   return updatedSlots
@@ -433,4 +429,56 @@ export function parseStandardDate(dateStr) {
 export function getShiftName(shiftCode, customShiftDefs = SHIFT_DEFS) {
   const def = (customShiftDefs && customShiftDefs[shiftCode]) || SHIFT_DEFS[shiftCode]
   return def ? `${def.name} (${shiftCode})` : shiftCode
+}
+
+/**
+ * 全月合規總檢查：把當月每一筆已排的班，用目前的人員資料、班別設定與排班規則重新驗證一次
+ * 用途：規則、班別時間或人員資料改過之後，找出先前已排但現在不合規的班
+ * 回傳 [{ staffId, staffName, dateStr, shiftCode, category, message }]
+ */
+export function auditMonthSchedule({ slotsByDate, adjacentSlots = {}, staffList, leaves = [], constraints = {}, customShiftDefs = SHIFT_DEFS, deptRules }) {
+  const issues = []
+  const seen = new Set()
+  const allSlots = { ...adjacentSlots, ...(slotsByDate || {}) }
+  const push = (issue) => {
+    const key = `${issue.staffId}|${issue.message}`
+    if (seen.has(key)) return
+    seen.add(key)
+    issues.push(issue)
+  }
+
+  Object.keys(slotsByDate || {}).sort().forEach(dateStr => {
+    (slotsByDate[dateStr] || []).forEach(slot => {
+      const assigned = Array.isArray(slot.assignedStaffIds) ? slot.assignedStaffIds : []
+      if (assigned.length === 0) return
+      const shiftName = getShiftName(slot.shiftCode, customShiftDefs)
+
+      if (!customShiftDefs[slot.shiftCode]) {
+        push({ staffId: '', staffName: '', dateStr, shiftCode: slot.shiftCode, category: '資格／設定', message: `${dateStr} [${slot.shiftCode}] 這個班別已不在班別設定中，但仍有 ${assigned.length} 人排班` })
+      }
+      if (assigned.length > slot.capacity) {
+        push({ staffId: '', staffName: '', dateStr, shiftCode: slot.shiftCode, category: '資格／設定', message: `${dateStr} [${shiftName}] 超過名額：已排 ${assigned.length} 人，名額 ${slot.capacity} 人` })
+      }
+
+      assigned.forEach(staffId => {
+        const staff = staffList.find(s => s.id === staffId)
+        if (!staff) {
+          push({ staffId, staffName: staffId, dateStr, shiftCode: slot.shiftCode, category: '資格／設定', message: `${dateStr} [${shiftName}] 排了員工編號 ${staffId}，但人員檔案中找不到這個人` })
+          return
+        }
+        // 當作這位同仁還沒選這個班，重新驗證一次（名額另外檢查，這裡不重複計算）
+        const testSlot = { ...slot, capacity: Infinity, assignedStaffIds: assigned.filter(id => id !== staffId) }
+        const testSlots = { ...allSlots, [dateStr]: (allSlots[dateStr] || []).map(s => (s.id === slot.id ? testSlot : s)) }
+        const val = validateBidding({ staff, slot: testSlot, dateStr, slotsByDate: testSlots, staffList, leaves, constraints, customShiftDefs, deptRules })
+        if (!val.valid) {
+          const byDeptRule = !!val.deptRule || !!val.restGap?.byDeptRule
+          const category = val.restGap && !byDeptRule ? '勞基法' : byDeptRule ? '科內規定' : '資格／設定'
+          const message = String(val.error || '').replace(/^⛔\s*/, '').replace(/^(違法)?禁止選填（[^）]*）：/, '').replace(/！$/, '')
+          push({ staffId, staffName: staff.name, dateStr, shiftCode: slot.shiftCode, category, message: val.restGap || val.deptRule ? message : `${dateStr} [${shiftName}] ${staff.name}：${message}` })
+        }
+      })
+    })
+  })
+
+  return issues
 }

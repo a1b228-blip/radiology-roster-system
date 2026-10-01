@@ -8,6 +8,8 @@
  *   end     下班時間 "HH:MM"（早於或等於上班時間代表跨日）
  *   restEnd 休息起算時間 "HH:MM"（科內規定用，留空＝以實際下班時間起算）
  *   breakMinutes 班內休息分鐘數（不計入工時；不影響班間休息間隔）
+ *   capacity 每班名額（自動開班時每個班格可選幾人）
+ *   openOnHoliday 國定假日是否照常開班
  *   nightType 夜班類別：'evening' 小夜班、'night' 大夜班、'' 非夜班（科內夜班規則用）
  *   time    顯示用文字 "08:00 - 16:30"，由 start/end 自動產生
  */
@@ -19,6 +21,9 @@ export const MIN_REST_HOURS = 11
 const LEGACY_DAY_SHIFT_CODES = ['D', 'SAT_D', 'T', 'D_CCT', 'd(US)', 'd(m)', 'C9', 'C8', 'M', 'd1', 'C2', 'C2(m)', '83（行）', 'CO（n）']
 const LEGACY_DAY_SHIFT_REST_END = '16:30'
 const LEGACY_NIGHT_TYPES = { E: 'evening', N: 'night' }
+// 舊版寫死在程式裡的每班名額與國定假日開班班別
+const LEGACY_CAPACITY = { D: 3, T: 2, 'd(m)': 2, 'CO（n）': 2, '83（行）': 2, V: 2 }
+const LEGACY_OPEN_ON_HOLIDAY = ['E', 'N']
 
 /** 將 "8:00"、"08：00"、"0800" 等寫法轉成小時數，無法辨識回傳 null */
 export function parseClock(str) {
@@ -180,6 +185,12 @@ export function normalizeShiftDef(code, def, { legacy = false } = {}) {
   result.breakMinutes = getBreakMinutes(result)
   // 舊資料沒有夜班類別時，依原本寫死的代號補上（E＝小夜、N＝大夜）
   if (def.nightType === undefined) result.nightType = LEGACY_NIGHT_TYPES[code] || ''
+  // 舊資料沒有名額與國定假日開班欄位時，沿用原本寫死的值
+  const capacity = parseInt(def.capacity, 10)
+  result.capacity = capacity >= 1 ? capacity : (LEGACY_CAPACITY[code] || 1)
+  if (def.openOnHoliday === undefined) result.openOnHoliday = LEGACY_OPEN_ON_HOLIDAY.includes(code)
+  // 資深帶導已停用（2026-10-01 使用者指示刪除）
+  delete result.needsSenior
   result.time = formatTimeRange(result.start, result.end)
   return result
 }

@@ -89,7 +89,7 @@ const props = defineProps({
   slotsByDate: { type: Object, default: () => ({}) },
   shiftDefs: { type: Object, default: () => ({}) },
   deptRules: { type: Object, default: () => ({}) },
-  adjacentSlots: { type: Object, default: () => ({}) },
+  slotsArchive: { type: Object, default: () => ({}) },
   leaves: { type: Array, default: () => [] }
 })
 
@@ -117,20 +117,40 @@ function addLock() {
     return
   }
 
-  const staffObj = props.staff.find(x => x.id === newLock.value.staffId)
-  if (staffObj) {
+  const { date, staffId, shiftCode } = newLock.value
+  const staffObj = props.staff.find(x => x.id === staffId)
+  if (!staffObj) {
+    alert('請選擇同仁')
+    return
+  }
+  if (props.locks.some(l => l.date === date && l.staffId === staffId)) {
+    alert(`⚠️ ${staffObj.name} 在 ${date} 已有人工指定班別，請先刪除原本的指定。`)
+    return
+  }
+
+  // 人工指定與同仁自己選班用同一套檢查：當天要有開這個班、名額未滿、資格與排班規則都符合
+  const allSlots = Object.assign({}, ...Object.values(props.slotsArchive || {}), props.slotsByDate)
+  if (!allSlots[date]) {
+    alert(`⚠️ ${date} 所屬的月份還沒有開班，請先到「同仁自主選班」切換到該月份開班後再指定。`)
+    return
+  }
+  const targetSlot = allSlots[date].find(s => s.shiftCode === shiftCode)
+  if (!targetSlot) {
+    alert(`⚠️ ${date} 當天沒有開 [${shiftCode}] 這個班，無法指定。\n請先到「同仁自主選班」的管理者模式為當天加開這個班，或改選當天有開的班別。`)
+    return
+  }
+  if (!targetSlot.assignedStaffIds.includes(staffId)) {
     const val = validateBidding({
       staff: staffObj,
-      slot: { shiftCode: newLock.value.shiftCode, capacity: 99, assignedStaffIds: [] },
-      dateStr: newLock.value.date,
-      slotsByDate: { ...props.adjacentSlots, ...props.slotsByDate },
+      slot: targetSlot,
+      dateStr: date,
+      slotsByDate: allSlots,
       staffList: props.staff,
-      leaves: [...props.locks, ...props.leaves],
-      constraints: { enableRestGap: true, restGapHours: 11 },
+      leaves: props.leaves,
+      constraints: { enableRestGap: true },
       customShiftDefs: props.shiftDefs,
       deptRules: props.deptRules
     })
-
     if (!val.valid) {
       alert(val.error)
       return
@@ -145,7 +165,7 @@ function addLock() {
 }
 
 function removeLock(idx) {
-  if (confirm('確定刪除此筆人工指定班別嗎？')) {
+  if (confirm('確定刪除此筆人工指定班別嗎？該同仁會同時從選班日曆的這個班退掉。')) {
     const updated = [...props.locks]
     updated.splice(idx, 1)
     emit('update:locks', updated)

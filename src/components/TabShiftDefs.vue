@@ -50,9 +50,10 @@
               <th>實際工時</th>
               <th title="科內規定：休息間隔從這個時間起算。留空＝以實際下班時間起算。">休息起算時間<br /><span style="font-weight: 500; font-size: 0.7rem;">(科內規定，留空＝下班時間)</span></th>
               <th>開班預設適用星期</th>
+              <th title="自動開班時，這個班每天開放幾個人選。改了之後目前月份的班格會立即同步。">每班名額</th>
+              <th title="勾選後，國定假日照常開這個班；沒勾的班別遇到國定假日不開。">國定假日開班</th>
               <th>對應檢查室 / 區域</th>
 
-              <th>需要資深帶導</th>
               <th>專業資格要求</th>
               <th>標籤顏色</th>
               <th>操作</th>
@@ -109,10 +110,14 @@
               </td>
 
               <td>
-                <input v-model="info.room" @change="emitChange" style="width: 120px; text-align: center; border: 1px solid #cbd5e1; border-radius: 4px;" />
+                <input type="number" v-model.number="info.capacity" @change="emitChange" min="1" max="30" class="break-input" />
               </td>
               <td>
-                <input type="checkbox" v-model="info.needsSenior" @change="emitChange" />
+                <input type="checkbox" v-model="info.openOnHoliday" @change="emitChange" />
+              </td>
+
+              <td>
+                <input v-model="info.room" @change="emitChange" style="width: 120px; text-align: center; border: 1px solid #cbd5e1; border-radius: 4px;" />
               </td>
               <td>
                 <select v-model="info.modKey" @change="emitChange" style="padding: 0.2rem; border: 1px solid #cbd5e1; border-radius: 4px;">
@@ -136,6 +141,32 @@
             </tr>
           </tbody>
         </table>
+      </div>
+    </div>
+
+    <!-- 國定假日設定：連動自動開班與選班日曆 -->
+    <div class="card card-glass" style="margin-top: 1rem;">
+      <div class="card-title" style="flex-wrap: wrap; gap: 10px;">
+        <CalendarDays :size="20" />
+        <span style="font-weight: 700; font-size: 1.1rem; color: #0d5c53;">國定假日設定</span>
+        <span style="font-size: 0.8rem; color: #64748b; font-weight: 500;">國定假日只開有勾選「國定假日開班」的班別；新增或刪除後，該日的班格立即同步（已有人選的班保留）</span>
+      </div>
+
+      <div style="display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; margin: 0.8rem 0;">
+        <input type="date" v-model="newHoliday.date" style="padding: 0.3rem 0.5rem; border: 1px solid #cbd5e1; border-radius: 4px;" />
+        <input type="text" v-model="newHoliday.name" placeholder="假日名稱，例如：國慶日" style="padding: 0.3rem 0.5rem; border: 1px solid #cbd5e1; border-radius: 4px; width: 200px;" />
+        <button class="btn btn-secondary" style="font-size: 0.8rem;" @click="addHoliday">
+          <Plus :size="14" />
+          <span>新增國定假日</span>
+        </button>
+      </div>
+
+      <div class="holiday-list">
+        <span v-for="date in sortedHolidays" :key="date" class="holiday-chip">
+          <strong>{{ date }}</strong>（{{ getWeekdayZh(date) }}）{{ holidayNames[date] || '' }}
+          <button class="holiday-remove" title="刪除" @click="removeHoliday(date)">✕</button>
+        </span>
+        <span v-if="sortedHolidays.length === 0" style="color: #94a3b8; font-size: 0.85rem;">尚未設定國定假日。</span>
       </div>
     </div>
 
@@ -184,7 +215,7 @@
 
 <script setup>
 import { ref, computed, watch } from 'vue'
-import { Clock, Plus, RotateCcw, Save, ShieldCheck } from 'lucide-vue-next'
+import { Clock, Plus, RotateCcw, Save, ShieldCheck, CalendarDays } from 'lucide-vue-next'
 import { SHIFT_DEFS, APPLICABLE_DAYS_OPTIONS } from '../core/types.js'
 import { getShiftInterval, getShiftHours, getBreakMinutes, formatClock, formatTimeRange, MIN_REST_HOURS } from '../core/shiftTime.js'
 import { checkNextDayShift } from '../core/deptRules.js'
@@ -193,10 +224,45 @@ import { saveState } from '../core/storage.js'
 
 const props = defineProps({
   shiftDefs: { type: Object, default: () => ({}) },
-  deptRules: { type: Object, default: () => ({}) }
+  deptRules: { type: Object, default: () => ({}) },
+  holidays: { type: Array, default: () => [] },
+  holidayNames: { type: Object, default: () => ({}) }
 })
 
-const emit = defineEmits(['update:shiftDefs', 'rename-code'])
+const emit = defineEmits(['update:shiftDefs', 'rename-code', 'update:holidays', 'update:holidayNames'])
+
+// ===== 國定假日設定 =====
+const newHoliday = ref({ date: '', name: '' })
+
+const sortedHolidays = computed(() => [...props.holidays].sort())
+
+function getWeekdayZh(dateStr) {
+  const [y, m, d] = dateStr.split('-').map(Number)
+  return '週' + ['日', '一', '二', '三', '四', '五', '六'][new Date(y, m - 1, d).getDay()]
+}
+
+function addHoliday() {
+  const { date, name } = newHoliday.value
+  if (!date) {
+    alert('請選擇國定假日的日期')
+    return
+  }
+  if (props.holidays.includes(date)) {
+    alert(`${date} 已經在國定假日清單中。`)
+    return
+  }
+  emit('update:holidayNames', { ...props.holidayNames, [date]: name.trim() })
+  emit('update:holidays', [...props.holidays, date].sort())
+  newHoliday.value = { date: '', name: '' }
+}
+
+function removeHoliday(date) {
+  if (!confirm(`確定將 ${date} 從國定假日清單移除嗎？該日會恢復依開班星期開班。`)) return
+  const names = { ...props.holidayNames }
+  delete names[date]
+  emit('update:holidayNames', names)
+  emit('update:holidays', props.holidays.filter(d => d !== date))
+}
 
 const shifts = ref({})
 const currentRoleFilter = ref('ALL')
@@ -325,6 +391,9 @@ function emitChange() {
     rest.restEnd = getShiftInterval(rest) ? (rest.restEnd || '') : ''
     rest.breakMinutes = getBreakMinutes(rest)
     rest.nightType = rest.nightType || ''
+    rest.capacity = Math.max(parseInt(rest.capacity, 10) || 1, 1)
+    rest.openOnHoliday = !!rest.openOnHoliday
+    delete rest.needsSenior
     rest.time = formatTimeRange(rest.start, rest.end)
     cleanObj[originalCode] = rest
   })
@@ -353,7 +422,8 @@ function addShift() {
     time: '08:00 - 16:30',
     room: '檢查室',
     color: '#0d5c53',
-    needsSenior: false,
+    capacity: 1,
+    openOnHoliday: false,
     targetRole: defaultRole,
     modKey: null,
     applicableDays: ''
@@ -400,6 +470,32 @@ function resetToExcelShiftDefs() {
 .time-input:disabled {
   background: #f1f5f9;
   color: #94a3b8;
+}
+
+.holiday-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.holiday-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: #fef2f2;
+  border: 1px solid #fca5a5;
+  color: #991b1b;
+  font-size: 0.85rem;
+}
+
+.holiday-remove {
+  border: none;
+  background: transparent;
+  color: #991b1b;
+  cursor: pointer;
+  font-weight: 700;
 }
 
 .next-day-tag,

@@ -77,42 +77,43 @@ export const APPLICABLE_DAYS_OPTIONS = [
 // 班別時間以 time 填寫，系統會自動拆成 start / end 欄位（見 shiftTime.js）
 // restEnd＝休息起算時間（科內規定）：半天班視同 16:30 下班，隔天不可接大夜班
 // breakMinutes＝班內休息分鐘數，不計入工時
+// capacity＝每班名額（未寫的為 1）；openOnHoliday＝國定假日照常開班（未寫的為不開）
 // nightType＝夜班類別（evening 小夜、night 大夜），科內夜班規則依此判斷
 // 公假比照日班 08:00–16:30、工時 8 小時，算上班並受所有排班規則限制（2026-10-01 使用者確認）
 const RAW_SHIFT_DEFS = {
   // ===== 1. 🩻 放射師班別 =====
-  "D": { "name": "一般日班", "time": "08:00 - 16:30", "breakMinutes": 30, "room": "一般X光", "color": "#475569", "needsSenior": false, "targetRole": "放射師", "modKey": "xray", "applicableDays": "1,2,3,4,5" },
-  "E": { "name": "一般小夜班", "nightType": "evening", "time": "16:00 - 00:30", "breakMinutes": 30, "room": "急診X光", "color": "#d97706", "needsSenior": false, "targetRole": "放射師", "modKey": "xray", "applicableDays": "0,1,2,3,4,5,6" },
-  "N": { "name": "大夜班", "nightType": "night", "time": "00:00 - 08:30", "breakMinutes": 30, "room": "急診X光", "color": "#dc2626", "needsSenior": false, "targetRole": "放射師", "modKey": "xray", "applicableDays": "0,1,2,3,4,5,6" },
-  "d(US)": { "name": "US白班", "time": "08:00 - 16:30", "breakMinutes": 30, "room": "超音波檢查室", "color": "#0284c7", "needsSenior": false, "targetRole": "放射師", "modKey": "us", "applicableDays": "1,2,3,4,5" },
-  "d1": { "name": "US半天班", "time": "08:00 - 12:00", "restEnd": "16:30", "breakMinutes": 0, "room": "超音波檢查室", "color": "#0f766e", "needsSenior": false, "targetRole": "放射師", "modKey": "us", "applicableDays": "6" },
-  "T": { "name": "CT", "time": "08:00 - 16:30", "breakMinutes": 30, "room": "CT檢查室", "color": "#4f46e5", "needsSenior": true, "targetRole": "放射師", "modKey": "ct", "applicableDays": "1,2,3,4,5" },
-  "M": { "name": "心臟CT", "time": "08:30 - 17:00", "breakMinutes": 30, "room": "CT/骨密/牙科", "color": "#e11d48", "needsSenior": true, "targetRole": "放射師", "modKey": "cct", "applicableDays": "1,2,3,4,5" },
-  "C9": { "name": "特殊支援CT", "time": "09:00 - 17:30", "breakMinutes": 30, "room": "特殊攝影房", "color": "#059669", "needsSenior": true, "targetRole": "放射師", "modKey": "angio", "applicableDays": "" },
-  "d(m)": { "name": "MRI白班", "time": "08:00 - 16:30", "breakMinutes": 30, "room": "MRI檢查室", "color": "#7c3aed", "needsSenior": true, "targetRole": "放射師", "modKey": "mri", "applicableDays": "0,1,2,3,4,5,6" },
-  "e(m)": { "name": "MRI晚班", "time": "13:00 - 21:30", "breakMinutes": 30, "room": "MRI檢查室", "color": "#9333ea", "needsSenior": false, "targetRole": "放射師", "modKey": "mri", "applicableDays": "1,2,3,4,5" },
-  "C8": { "name": "MAMMO", "time": "08:30 - 17:00", "breakMinutes": 30, "room": "乳房攝影室", "color": "#db2777", "needsSenior": false, "targetRole": "放射師", "modKey": "mammo", "applicableDays": "1,2,3,4,5" },
-  "C2(m)": { "name": "C2 假日Mammo班", "time": "08:30 - 12:30", "restEnd": "16:30", "breakMinutes": 0, "room": "乳房攝影室", "color": "#c026d3", "needsSenior": false, "targetRole": "放射師", "modKey": "mammo", "applicableDays": "6" },
-  "C2": { "name": "C2支援班", "time": "08:30 - 12:30", "restEnd": "16:30", "breakMinutes": 0, "room": "C2支援", "color": "#16a34a", "needsSenior": false, "targetRole": "放射師", "modKey": "angio", "applicableDays": "6" },
-  "M1": { "name": "骨密牙科", "time": "08:30 - 17:00", "breakMinutes": 30, "room": "骨密牙科攝影室", "color": "#ea580c", "needsSenior": false, "targetRole": "放射師", "modKey": "bmd", "applicableDays": "" },
+  "D": { "name": "一般日班", "capacity": 3, "time": "08:00 - 16:30", "breakMinutes": 30, "room": "一般X光", "color": "#475569", "targetRole": "放射師", "modKey": "xray", "applicableDays": "1,2,3,4,5" },
+  "E": { "name": "一般小夜班", "openOnHoliday": true, "nightType": "evening", "time": "16:00 - 00:30", "breakMinutes": 30, "room": "急診X光", "color": "#d97706", "targetRole": "放射師", "modKey": "xray", "applicableDays": "0,1,2,3,4,5,6" },
+  "N": { "name": "大夜班", "openOnHoliday": true, "nightType": "night", "time": "00:00 - 08:30", "breakMinutes": 30, "room": "急診X光", "color": "#dc2626", "targetRole": "放射師", "modKey": "xray", "applicableDays": "0,1,2,3,4,5,6" },
+  "d(US)": { "name": "US白班", "time": "08:00 - 16:30", "breakMinutes": 30, "room": "超音波檢查室", "color": "#0284c7", "targetRole": "放射師", "modKey": "us", "applicableDays": "1,2,3,4,5" },
+  "d1": { "name": "US半天班", "time": "08:00 - 12:00", "restEnd": "16:30", "breakMinutes": 0, "room": "超音波檢查室", "color": "#0f766e", "targetRole": "放射師", "modKey": "us", "applicableDays": "6" },
+  "T": { "name": "CT", "capacity": 2, "time": "08:00 - 16:30", "breakMinutes": 30, "room": "CT檢查室", "color": "#4f46e5", "targetRole": "放射師", "modKey": "ct", "applicableDays": "1,2,3,4,5" },
+  "M": { "name": "心臟CT", "time": "08:30 - 17:00", "breakMinutes": 30, "room": "CT/骨密/牙科", "color": "#e11d48", "targetRole": "放射師", "modKey": "cct", "applicableDays": "1,2,3,4,5" },
+  "C9": { "name": "特殊支援CT", "time": "09:00 - 17:30", "breakMinutes": 30, "room": "特殊攝影房", "color": "#059669", "targetRole": "放射師", "modKey": "angio", "applicableDays": "" },
+  "d(m)": { "name": "MRI白班", "capacity": 2, "time": "08:00 - 16:30", "breakMinutes": 30, "room": "MRI檢查室", "color": "#7c3aed", "targetRole": "放射師", "modKey": "mri", "applicableDays": "0,1,2,3,4,5,6" },
+  "e(m)": { "name": "MRI晚班", "time": "13:00 - 21:30", "breakMinutes": 30, "room": "MRI檢查室", "color": "#9333ea", "targetRole": "放射師", "modKey": "mri", "applicableDays": "1,2,3,4,5" },
+  "C8": { "name": "MAMMO", "time": "08:30 - 17:00", "breakMinutes": 30, "room": "乳房攝影室", "color": "#db2777", "targetRole": "放射師", "modKey": "mammo", "applicableDays": "1,2,3,4,5" },
+  "C2(m)": { "name": "C2 假日Mammo班", "time": "08:30 - 12:30", "restEnd": "16:30", "breakMinutes": 0, "room": "乳房攝影室", "color": "#c026d3", "targetRole": "放射師", "modKey": "mammo", "applicableDays": "6" },
+  "C2": { "name": "C2支援班", "time": "08:30 - 12:30", "restEnd": "16:30", "breakMinutes": 0, "room": "C2支援", "color": "#16a34a", "targetRole": "放射師", "modKey": "angio", "applicableDays": "6" },
+  "M1": { "name": "骨密牙科", "time": "08:30 - 17:00", "breakMinutes": 30, "room": "骨密牙科攝影室", "color": "#ea580c", "targetRole": "放射師", "modKey": "bmd", "applicableDays": "" },
 
   // ===== 2. 🩺 護理人員班別 =====
-  "96": { "name": "96白班", "time": "09:00 - 18:00", "breakMinutes": 60, "room": "護理", "color": "#be123c", "needsSenior": false, "targetRole": "護理人員", "modKey": null, "applicableDays": "1,2,3,4,5" },
-  "CO（n）": { "name": "護理常規日班", "time": "08:00 - 17:00", "breakMinutes": 60, "room": "護理", "color": "#e11d48", "needsSenior": false, "targetRole": "護理人員", "modKey": null, "applicableDays": "" },
-  "D1(n)": { "name": "護理半天班", "time": "08:00 - 12:00", "restEnd": "16:30", "breakMinutes": 0, "room": "護理", "color": "#f43f5e", "needsSenior": false, "targetRole": "護理人員", "modKey": null, "applicableDays": "6" },
-  "e(n)": { "name": "護理常規晚班", "time": "13:00 - 21:30", "breakMinutes": 30, "room": "護理", "color": "#b45309", "needsSenior": false, "targetRole": "護理人員", "modKey": null, "applicableDays": "1,2,3,4,5" },
+  "96": { "name": "96白班", "time": "09:00 - 18:00", "breakMinutes": 60, "room": "護理", "color": "#be123c", "targetRole": "護理人員", "modKey": null, "applicableDays": "1,2,3,4,5" },
+  "CO（n）": { "name": "護理常規日班", "capacity": 2, "time": "08:00 - 17:00", "breakMinutes": 60, "room": "護理", "color": "#e11d48", "targetRole": "護理人員", "modKey": null, "applicableDays": "" },
+  "D1(n)": { "name": "護理半天班", "time": "08:00 - 12:00", "restEnd": "16:30", "breakMinutes": 0, "room": "護理", "color": "#f43f5e", "targetRole": "護理人員", "modKey": null, "applicableDays": "6" },
+  "e(n)": { "name": "護理常規晚班", "time": "13:00 - 21:30", "breakMinutes": 30, "room": "護理", "color": "#b45309", "targetRole": "護理人員", "modKey": null, "applicableDays": "1,2,3,4,5" },
 
   // ===== 3. 📝 書記班別 =====
-  "83（行）": { "name": "櫃檯行政日班", "time": "08:00 - 17:00", "breakMinutes": 60, "room": "登記櫃檯", "color": "#475569", "needsSenior": false, "targetRole": "書記", "modKey": null, "applicableDays": "1,2,3,4,5" },
-  "C2(行)": { "name": "櫃檯行政半日班", "time": "08:30 - 12:30", "restEnd": "16:30", "breakMinutes": 0, "room": "登記櫃檯", "color": "#334155", "needsSenior": false, "targetRole": "書記", "modKey": null, "applicableDays": "6" },
-  "CO（行）": { "name": "櫃檯行政日班", "time": "08:00 - 17:00", "breakMinutes": 60, "room": "登記櫃檯", "color": "#1e293b", "needsSenior": false, "targetRole": "書記", "modKey": null, "applicableDays": "1,2,3,4,5" },
-  "D1（行）": { "name": "櫃檯行政半日班", "time": "08:00 - 12:00", "restEnd": "16:30", "breakMinutes": 0, "room": "登記櫃檯", "color": "#64748b", "needsSenior": false, "targetRole": "書記", "modKey": null, "applicableDays": "6" },
-  "e（行）": { "name": "櫃檯行政晚班", "time": "13:00 - 21:30", "breakMinutes": 30, "room": "登記櫃檯", "color": "#4b5563", "needsSenior": false, "targetRole": "書記", "modKey": null, "applicableDays": "" },
+  "83（行）": { "name": "櫃檯行政日班", "capacity": 2, "time": "08:00 - 17:00", "breakMinutes": 60, "room": "登記櫃檯", "color": "#475569", "targetRole": "書記", "modKey": null, "applicableDays": "1,2,3,4,5" },
+  "C2(行)": { "name": "櫃檯行政半日班", "time": "08:30 - 12:30", "restEnd": "16:30", "breakMinutes": 0, "room": "登記櫃檯", "color": "#334155", "targetRole": "書記", "modKey": null, "applicableDays": "6" },
+  "CO（行）": { "name": "櫃檯行政日班", "time": "08:00 - 17:00", "breakMinutes": 60, "room": "登記櫃檯", "color": "#1e293b", "targetRole": "書記", "modKey": null, "applicableDays": "1,2,3,4,5" },
+  "D1（行）": { "name": "櫃檯行政半日班", "time": "08:00 - 12:00", "restEnd": "16:30", "breakMinutes": 0, "room": "登記櫃檯", "color": "#64748b", "targetRole": "書記", "modKey": null, "applicableDays": "6" },
+  "e（行）": { "name": "櫃檯行政晚班", "time": "13:00 - 21:30", "breakMinutes": 30, "room": "登記櫃檯", "color": "#4b5563", "targetRole": "書記", "modKey": null, "applicableDays": "" },
 
   // ===== 4. 🏖️ 通用假別 =====
-  "V": { "name": "特休", "time": "-", "room": "特休", "color": "#0284c7", "needsSenior": false, "targetRole": null, "modKey": null, "applicableDays": "1,2,3,4,5" },
-  "公": { "name": "公假", "time": "08:00 - 16:30", "breakMinutes": 30, "room": "公假", "color": "#059669", "needsSenior": false, "targetRole": null, "modKey": null, "applicableDays": "1,2,3,4,5" },
-  "OFF": { "name": "休假/例假", "time": "-", "room": "-", "color": "#94a3b8", "needsSenior": false, "targetRole": null, "modKey": null, "applicableDays": "0,1,2,3,4,5,6" }
+  "V": { "name": "特休", "capacity": 2, "time": "-", "room": "特休", "color": "#0284c7", "targetRole": null, "modKey": null, "applicableDays": "1,2,3,4,5" },
+  "公": { "name": "公假", "time": "08:00 - 16:30", "breakMinutes": 30, "room": "公假", "color": "#059669", "targetRole": null, "modKey": null, "applicableDays": "1,2,3,4,5" },
+  "OFF": { "name": "休假/例假", "time": "-", "room": "-", "color": "#94a3b8", "targetRole": null, "modKey": null, "applicableDays": "0,1,2,3,4,5,6" }
 }
 
 export const SHIFT_DEFS = normalizeShiftDefs(RAW_SHIFT_DEFS)
@@ -136,24 +137,6 @@ export const LEAVE_TYPES = [
   { id: 'am', name: '上午請假 (08:00–12:00)' },
   { id: 'pm', name: '下午請假 (13:00–17:00)' },
   { id: 'rad_edu', name: '輻射防護繼續教育訓練' }
-]
-
-// 預設排班合規、勞基法、四週變形工時與科內營運計畫條款
-export const DEFAULT_COMPLIANCE_RULES = [
-  { id: 'R01', category: '勞基法剛性規範', name: '輪班換班休息時間不足 11 小時阻擋', lawRef: '勞基法第 34 條', weight: 100, enabled: true, action: '⛔ 硬性強制作業不可違反 (系統禁止選班)' },
-  { id: 'R02', category: '四週變形工時', name: '雙週內連續上班超過 12 天阻擋', lawRef: '勞基法第 30 條之 1', weight: 100, enabled: true, action: '⛔ 硬性強制作業不可違反 (系統禁止選班)' },
-  { id: 'R03', category: '四週變形工時', name: '四週休假總天數少於 8 天阻擋', lawRef: '勞基法第 30 條之 1', weight: 100, enabled: true, action: '⛔ 硬性強制作業不可違反 (系統禁止選班)' },
-  { id: 'R04', category: '勞基法剛性規範', name: '每日工作時數上限超過 12 小時阻擋', lawRef: '勞基法第 32 條', weight: 100, enabled: true, action: '⛔ 硬性強制作業不可違反 (系統禁止選班)' },
-  { id: 'R05', category: '勞基法剛性規範', name: '妊娠/母性保護同仁禁止夜間工作阻擋', lawRef: '勞基法第 49 條', weight: 100, enabled: true, action: '⛔ 硬性強制作業不可違反 (系統禁止選班)' },
-  { id: 'R06', category: '科內營運計畫', name: '診間與特殊機台房每日最低營運人力保底', lawRef: '放射科營運計畫書', weight: 90, enabled: true, action: '⚠️ 營運保底提示與人力調配引導' },
-  { id: 'R07', category: '科內營運計畫', name: '第二專長放射師當月最低需求天數達標', lawRef: '科內人力培育計畫', weight: 90, enabled: true, action: '⚠️ 專長優先推薦與目標達成引導' },
-  { id: 'R08', category: '科內營運計畫', name: '高階攝影房 (CT/MRI) 主管資深帶導門檻', lawRef: '品質控管規範', weight: 90, enabled: true, action: '⚠️ 專業帶導警示與人次檢核' },
-  { id: 'R09', category: '院內健康關懷', name: '連續上班超過 6 天疲勞預警', lawRef: '健康促進計畫', weight: 80, enabled: true, action: '💡 黃色溫馨防過勞提示' },
-  { id: 'R10', category: '院內健康關懷', name: '單月急診夜班上限 (預設 6 天) 關懷提示', lawRef: '夜班關懷條例', weight: 80, enabled: true, action: '💡 排班負擔關懷提醒' },
-  { id: 'R11', category: '個人化排班', name: '同仁自主選班與預期休假意願滿足率', lawRef: '同仁滿意度關懷', weight: 50, enabled: true, action: '💡 彈性意願滿足' },
-  { id: 'R12', category: '勞基法剛性規範', name: '日班/晚班/小夜班隔天禁止接大夜班 N (不足 11h 阻擋)', lawRef: '勞基法第 34 條', weight: 100, enabled: true, action: '⛔ 硬性強制作業不可違反 (系統禁止選班)' },
-  { id: 'R13', category: '勞基法剛性規範', name: 'MRI 晚班 e(m) 隔天禁止接 08:00 日班 (10.5h 不足阻擋)', lawRef: '勞基法第 34 條', weight: 100, enabled: true, action: '⛔ 硬性強制作業不可違反 (系統禁止選班)' },
-  { id: 'R14', category: '勞基法剛性規範', name: '一般小夜班 E 隔天禁止接指定班別 (00:30 下班不足 11h 阻擋)', lawRef: '勞基法第 34 條', weight: 100, enabled: true, action: '⛔ 硬性強制作業不可違反 (系統禁止選班)' }
 ]
 
 // 預設第二專長月指定天數
