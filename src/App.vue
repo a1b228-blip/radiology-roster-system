@@ -536,7 +536,9 @@ function handleExportExcel() {
     month: month.value,
     staffList: staff.value,
     roster: roster.value,
-    slotsByDate: slotsByDate.value
+    slotsByDate: slotsByDate.value,
+    leaves: leaves.value,
+    shiftDefs: shiftDefs.value
   })
 }
 
@@ -552,6 +554,8 @@ function handleBackupJSON() {
     shiftDefs: shiftDefs.value,
     constraints: constraints.value,
     deptRules: deptRules.value,
+    specialtyTargets: specialtyTargets.value,
+    slotSignatures: slotSignatures.value,
     leaves: leaves.value,
     locks: locks.value,
     roster: roster.value,
@@ -574,6 +578,11 @@ function handleLoadBackup(event) {
     if (data.shiftDefs) shiftDefs.value = normalizeShiftDefs(data.shiftDefs, { legacy: true })
     if (data.constraints) constraints.value = data.constraints
     if (data.deptRules) deptRules.value = normalizeDeptRules(data.deptRules)
+    if (data.specialtyTargets) specialtyTargets.value = data.specialtyTargets
+    if (data.slotSignatures) {
+      slotSignatures.value = data.slotSignatures
+      saveState('slotSignatures', data.slotSignatures)
+    }
     if (data.leaves) leaves.value = data.leaves
     if (data.locks) locks.value = data.locks
     if (data.roster) roster.value = data.roster
